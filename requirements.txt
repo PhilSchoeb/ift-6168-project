@@ -1,0 +1,6 @@
+allensdk
+jupyter
+matplotlib
+numpy
+pandas
+scipy
