@@ -9,6 +9,7 @@ PATH_TO_NWB = "brain_observatory/ophys_experiment_data/501794235.nwb"
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 path_to_nwb = os.path.join(current_file_path, PATH_TO_NWB)
 
+print(f"\nComplete list of sections in the nwb file downloaded")
 with h5py.File(path_to_nwb, "r") as f:
     # See top-level keys
     print(list(f.keys()))
@@ -19,6 +20,7 @@ with h5py.File(path_to_nwb, "r") as f:
 # Explore with ROI 0000
 roi_path = "processing/brain_observatory_pipeline/ImageSegmentation/imaging_plane_1/roi_0000"
 
+print(f"\nExplore the data in roi_0000S")
 with h5py.File(path_to_nwb, "r") as f:
     roi = f[roi_path]
 
@@ -33,6 +35,7 @@ with h5py.File(path_to_nwb, "r") as f:
     print("description:   ", description)
 
 # Look at neuronal activity
+print(f"\nLooking at DfOverF/imaging_plane_1 (neuronal activity)")
 with h5py.File(path_to_nwb, "r") as f:
     base = "processing/brain_observatory_pipeline/DfOverF/imaging_plane_1"
 
@@ -41,6 +44,7 @@ with h5py.File(path_to_nwb, "r") as f:
     roi_names = f[base + "/roi_names"][()]  # (n_rois,)
 
 # Activity for a single neuron (e.g. roi_0000, which is index 0)
+print(f"\nActivity for neuron at index 0:")
 trace_roi0 = data[0, :]
 print(trace_roi0.shape)
 print(type(trace_roi0))
@@ -49,7 +53,7 @@ print(timestamps[-1])   # total duration in seconds
 print(len(timestamps))  # should confirm 152
 
 # Check fluorescence
-
+print(f"\nCheck fluorescence/imaging_plane_1 data")
 with h5py.File(path_to_nwb, "r") as f:
     base_f = "processing/brain_observatory_pipeline/Fluorescence/imaging_plane_1"
 
@@ -60,7 +64,7 @@ with h5py.File(path_to_nwb, "r") as f:
     print("Fluorescence timestamps shape:", timestamps_f.shape)
 
 # See images (stimuli)
-
+print(f"\nSee stimuli: natural scenes")
 with h5py.File(path_to_nwb, "r") as f:
     # Stimulus presentation
     scene_indices = f["stimulus/presentation/natural_scenes_stimulus/data"][()]
@@ -77,8 +81,8 @@ with h5py.File(path_to_nwb, "r") as f:
     print("time range: ", scene_times[0], scene_times[-1])
 
 # See static gratings (different format, we do not have access to images but rather parameters to generate the static gratings)
-
-"""with h5py.File(path_to_nwb, "r") as f:
+print(f"\nSee stimuli: static gratings")
+with h5py.File(path_to_nwb, "r") as f:
     grating_data = f["stimulus/presentation/static_gratings_stimulus/data"][()]
     grating_times = f["stimulus/presentation/static_gratings_stimulus/timestamps"][()]
     grating_features = f["stimulus/presentation/static_gratings_stimulus/features"][()]
@@ -86,10 +90,18 @@ with h5py.File(path_to_nwb, "r") as f:
     print("grating_data shape:    ", grating_data.shape)
     print("grating_times shape:   ", grating_times.shape)
     print("grating_features:      ", grating_features)
-    print("grating_data sample:\n ", grating_data[:3])"""
+    print("grating_data sample:\n ", grating_data[:3])
+
+# See stimuli presentation (static gratings more precisely)
+print("\nStimuli presentation:")
+with h5py.File(path_to_nwb, "r") as f:
+    print(list(f["stimulus/presentation"].keys()))
+
+    print(f["stimulus/presentation/static_gratings_stimulus"].keys())
+
 
 # See natural movies
-
+print(f"\nSee stimuli: natural movies")
 with h5py.File(path_to_nwb, "r") as f:
     movie_indices = f["stimulus/presentation/natural_movie_one_stimulus/data"][()]
     movie_times = f["stimulus/presentation/natural_movie_one_stimulus/timestamps"][()]
@@ -102,7 +114,7 @@ with h5py.File(path_to_nwb, "r") as f:
     print("time range:         ", movie_times[0], movie_times[-1])
 
 # Explore spontaneous stimuli
-
+print(f"\nSee stimuli: spontaneous")
 with h5py.File(path_to_nwb, "r") as f:
     spont = f["stimulus/presentation/spontaneous_stimulus"]
 

@@ -19,6 +19,9 @@ current_file_path = os.path.dirname(os.path.abspath(__file__))
 path_to_nwb = os.path.join(current_file_path, PATH_TO_NWB)
 CHUNK_SIZE   = 100  # process 100 presentations at a time
 
+def quantize_to_step(y_values, step=50):
+    return np.round(y_values / step) * step
+
 def get_unique_natural_scenes_analysis():
     with h5py.File(path_to_nwb, "r") as f:
         # --- Stimulus ---
@@ -43,7 +46,7 @@ def get_unique_natural_scenes_analysis():
         print("Total presentations:", len(scene_indices))
         print(f"Presentations per image — min: {counts.min()}, max: {counts.max()}, mean: {counts.mean():.1f}")
 
-def get_full_images_dataset():
+def get_full_images_dataset(num_samples: int = 500):
     """
     Trial-level dataset with full neural response windows.
 
@@ -53,10 +56,10 @@ def get_full_images_dataset():
         X : (n_trials, H, W)
         y : (n_trials, n_neurons, n_timesteps)
     """
-    output_path = "natural_scenes_dataset.npz"
+    output_path = f"./data/natural_scenes_dataset_{num_samples}_binned.npz"
 
     PRE_STIM = 0.1
-    POST_STIM = 0.5
+    POST_STIM = 5.0
 
     with h5py.File(path_to_nwb, "r") as f:
         # --- Stimulus ---
@@ -109,6 +112,10 @@ def get_full_images_dataset():
         starts = np.array(starts, dtype=np.int32)
         ends = np.array(ends, dtype=np.int32)
 
+        # Subsample only num_samples samples
+        idx = np.random.choice(len(keep_trial_ids), size=num_samples, replace=False)
+        keep_trial_ids = keep_trial_ids[idx]
+
         n_trials = len(keep_trial_ids)
 
         print(f"Trials kept: {n_trials}")
@@ -160,6 +167,10 @@ def get_full_images_dataset():
 
             print(f"  Processed {j}/{n_trials}", end="\r")
 
+        # We will quantize the y values to bins to reduce its cardinality
+        bin_size = 50
+        y_memmap = quantize_to_step(y_memmap, bin_size)
+
         print("\nSaving dataset...")
 
         np.savez_compressed(
@@ -189,10 +200,13 @@ def get_averaged_images_dataset():
     Similar to the 'get_full_images_dataset' function but only keeps each unique image once and averages over all
     corresponding neuronal responses.
     """
-    output_path = "natural_scenes_dataset_averaged.npz"
+    output_path = "./data/natural_scenes_dataset_averaged_binned.npz"
 
     PRE_STIM = 0.1  # seconds before stimulus onset
-    POST_STIM = 0.5  # seconds after stimulus onset
+    POST_STIM = 5.0  # seconds after stimulus onset
+
+    # We will quantize the y values to bins to reduce its cardinality
+    bin_size = 50
 
     with h5py.File(path_to_nwb, "r") as f:
         # --- Stimulus ---
@@ -248,6 +262,9 @@ def get_averaged_images_dataset():
         for img_idx in range(n_images):
             if counts[img_idx] > 0:
                 y[img_idx] /= counts[img_idx]
+
+        # Apply binning
+        y = quantize_to_step(y, bin_size)
 
         print(f"\nRepeats per image — min: {counts.min()}, max: {counts.max()}")
 
