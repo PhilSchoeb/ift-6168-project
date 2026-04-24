@@ -210,3 +210,4 @@ __marimo__/
 *Zone.Identifier
 *.idea
 *brain_observatory/
+*.npz
