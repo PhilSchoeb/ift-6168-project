@@ -8,6 +8,7 @@ analyze neuronal activity based on the image shown to a mouse.
 
 """
 
+import cv2
 import h5py
 import numpy as np
 import os
@@ -46,7 +47,7 @@ def get_unique_natural_scenes_analysis():
         print("Total presentations:", len(scene_indices))
         print(f"Presentations per image — min: {counts.min()}, max: {counts.max()}, mean: {counts.mean():.1f}")
 
-def get_full_images_dataset(num_samples: int = 500):
+def get_full_images_dataset(num_samples: int = 500, downsample=True):
     """
     Trial-level dataset with full neural response windows.
 
@@ -56,10 +57,24 @@ def get_full_images_dataset(num_samples: int = 500):
         X : (n_trials, H, W)
         y : (n_trials, n_neurons, n_timesteps)
     """
-    output_path = f"./data/natural_scenes_dataset_{num_samples}_binned.npz"
+    if downsample:
+        output_path = f"./data/natural_scenes_dataset_{num_samples}_downsampled.npz"
+    else:
+        output_path = f"./data/natural_scenes_dataset_{num_samples}.npz"
+
 
     PRE_STIM = 0.1
     POST_STIM = 5.0
+
+    # Downsampling hyperparameters for images
+    DOWNSAMPLE_FACTOR = 4
+    N_BINS = 20
+
+    new_h = 918 // DOWNSAMPLE_FACTOR
+    new_w = 1174 // DOWNSAMPLE_FACTOR
+
+    # 20 equidistant values from 0 to 255
+    bin_values = np.linspace(0, 255, N_BINS, dtype=np.float32)
 
     with h5py.File(path_to_nwb, "r") as f:
         # --- Stimulus ---
@@ -129,16 +144,28 @@ def get_full_images_dataset(num_samples: int = 500):
             shape=y_shape
         )
 
-        # --- Allocate X as memmap ---
-        img_shape = images[0].shape
-        X_shape = (n_trials,) + img_shape
+        if downsample:
+            # --- Allocate X as memmap ---
+            img_shape = (new_h, new_w)
+            X_shape = (n_trials,) + img_shape
 
-        X_memmap = np.memmap(
-            "X_temp.dat",
-            dtype="float32",
-            mode="w+",
-            shape=X_shape
-        )
+            X_memmap = np.memmap(
+                "X_temp.dat",
+                dtype="float32",
+                mode="w+",
+                shape=X_shape
+            )
+        else:
+            # --- Allocate X as memmap ---
+            img_shape = images[0].shape
+            X_shape = (n_trials,) + img_shape
+
+            X_memmap = np.memmap(
+                "X_temp.dat",
+                dtype="float32",
+                mode="w+",
+                shape=X_shape
+            )
 
         kept_indices = np.empty(n_trials, dtype=np.int32)
         kept_times = np.empty(n_trials, dtype=np.float64)
@@ -147,6 +174,7 @@ def get_full_images_dataset(num_samples: int = 500):
         # Pass 2: build dataset in chunks
         # ---------------------------------------------------------
         print("Building dataset...")
+        print("Applying downsampling + quantization...")
 
         for i in range(0, n_trials, CHUNK_SIZE):
             j = min(i + CHUNK_SIZE, n_trials)
@@ -156,7 +184,31 @@ def get_full_images_dataset(num_samples: int = 500):
             # --- images ---
             for local_k, trial_id in enumerate(chunk_trials):
                 img_idx = scene_indices[trial_id]
-                X_memmap[i + local_k] = images[img_idx]
+                img = images[img_idx]
+
+                if downsample:
+                    # ----------------------------
+                    # 1. Downsample
+                    # ----------------------------
+                    img_small = cv2.resize(
+                        img,
+                        (new_w, new_h),  # OpenCV uses (width, height)
+                        interpolation=cv2.INTER_AREA
+                    )
+                    # ----------------------------
+                    # 2. Quantize to 20 bins
+                    # ----------------------------
+                    # map [0,255] -> indices [0,19]
+                    bin_idx = np.round(img_small / 255 * (N_BINS - 1)).astype(np.int32)
+
+                    # map indices -> actual equidistant values
+                    img_quant = bin_values[bin_idx]
+
+                    # store
+                    X_memmap[i + local_k] = img_quant.astype(np.float32)
+
+                else:
+                    X_memmap[i + local_k] = img
 
             # --- neural windows ---
             for local_k in range(j - i):
@@ -167,9 +219,10 @@ def get_full_images_dataset(num_samples: int = 500):
 
             print(f"  Processed {j}/{n_trials}", end="\r")
 
-        # We will quantize the y values to bins to reduce its cardinality
-        bin_size = 50
-        y_memmap = quantize_to_step(y_memmap, bin_size)
+        if downsample:
+            # We will quantize the y values to bins to reduce its cardinality
+            y_bin_size = 50
+            y_memmap = quantize_to_step(y_memmap, y_bin_size)
 
         print("\nSaving dataset...")
 
@@ -195,18 +248,29 @@ def get_full_images_dataset(num_samples: int = 500):
     print(f"y shape: {y_shape}")
 
 
-def get_averaged_images_dataset():
+def get_averaged_images_dataset(downsample=True):
     """
     Similar to the 'get_full_images_dataset' function but only keeps each unique image once and averages over all
     corresponding neuronal responses.
     """
-    output_path = "./data/natural_scenes_dataset_averaged_binned.npz"
+    if downsample:
+        output_path = "./data/natural_scenes_dataset_averaged_downsampled.npz"
+    else:
+        output_path = "./data/natural_scenes_dataset_averaged.npz"
+
 
     PRE_STIM = 0.1  # seconds before stimulus onset
     POST_STIM = 5.0  # seconds after stimulus onset
 
-    # We will quantize the y values to bins to reduce its cardinality
-    bin_size = 50
+    # Downsampling hyperparameters for images
+    DOWNSAMPLE_FACTOR = 4
+    N_BINS = 20
+
+    new_h = 918 // DOWNSAMPLE_FACTOR
+    new_w = 1174 // DOWNSAMPLE_FACTOR
+
+    # 20 equidistant values from 0 to 255
+    bin_values = np.linspace(0, 255, N_BINS, dtype=np.float32)
 
     with h5py.File(path_to_nwb, "r") as f:
         # --- Stimulus ---
@@ -240,6 +304,39 @@ def get_averaged_images_dataset():
         print("\nLoading unique images...")
         X = np.array([images_h5[i] for i in range(n_images)], dtype=np.float32)  # (118, 918, 1174)
 
+        if downsample:
+            print("Applying downsampling + quantization...")
+
+            # allocate reduced image tensor
+            X_processed = np.empty((n_images, new_h, new_w), dtype=np.float32)
+
+            for img_idx in range(n_images):
+                img = X[img_idx]
+
+                # ----------------------------
+                # 1. Downsample
+                # ----------------------------
+                img_small = cv2.resize(
+                    img,
+                    (new_w, new_h),  # OpenCV uses (width, height)
+                    interpolation=cv2.INTER_AREA
+                )
+
+                # ----------------------------
+                # 2. Quantize to N_BINS bins
+                # ----------------------------
+                # map [0,255] -> indices [0, N_BINS-1]
+                bin_idx = np.round(
+                    img_small / 255.0 * (N_BINS - 1)
+                ).astype(np.int32)
+
+                # map indices -> equidistant values
+                img_quant = bin_values[bin_idx]
+
+                X_processed[img_idx] = img_quant.astype(np.float32)
+
+            X = X_processed
+
         # --- Build y: average over 50 repeats per image ---
         y = np.zeros((n_images, n_neurons, n_timesteps), dtype=np.float32)
         counts = np.zeros(n_images, dtype=np.int32)
@@ -263,8 +360,11 @@ def get_averaged_images_dataset():
             if counts[img_idx] > 0:
                 y[img_idx] /= counts[img_idx]
 
-        # Apply binning
-        y = quantize_to_step(y, bin_size)
+        if downsample:
+            # We will quantize the y values to bins to reduce its cardinality
+            y_bin_size = 50
+            # Apply binning
+            y = quantize_to_step(y, y_bin_size)
 
         print(f"\nRepeats per image — min: {counts.min()}, max: {counts.max()}")
 
@@ -284,6 +384,8 @@ def get_averaged_images_dataset():
 
 
 def main():
+    DOWNSAMPLE = True
+
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -298,9 +400,9 @@ def main():
     task = args.task
 
     if task == "full_images_dataset":
-        get_full_images_dataset()
+        get_full_images_dataset(DOWNSAMPLE)
     elif task == "averaged_images_dataset":
-        get_averaged_images_dataset()
+        get_averaged_images_dataset(DOWNSAMPLE)
     elif task == "unique_images_analysis":
         get_unique_natural_scenes_analysis()
     else:
