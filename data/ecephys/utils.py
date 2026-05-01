@@ -344,6 +344,7 @@ class NaturalScenesDataset:
         self.stimulus_table = pd.read_csv(self.data_dir+"/natural_scenes/stimulus.csv",index_col=0)
         self.stimulus_table.dropna(inplace=True)
         self.stimulus_table["frame"] = self.stimulus_table.frame.astype(int)
+        self.stimulus_table = self.stimulus_table[self.stimulus_table.frame>=0]
         self.natural_scenes = np.load(cache_dir+"/natural_scenes.npy")
         act_data = np.load(self.data_dir+"/natural_scenes/activation.npz")
         self.activation_data = act_data["data"]
