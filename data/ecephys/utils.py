@@ -131,3 +131,311 @@ def plot_full_raster(spike_times: pd.DataFrame, unit_ids: list):
     plt.title("Raster Plot")
     plt.ylim(0.5, len(unit_ids) + 0.5)
     plt.show()
+
+
+def generate_gratings(orientations,
+                      spatial_freqs,
+                      phases,
+                      size=(250, 250),
+                      contrast=0.8,
+                      max_pixel_value=255.0,
+                      stripes_per_unit=75):  # calibrated: sf=0.32 → 24 stripes
+    """
+    Generate a batch of sinusoidal gratings.
+
+    Based on parameters presented here: https://observatory.brain-map.org/visualcoding/stimulus/static_gratings
+
+    Parameters
+    ----------
+    orientations     : array-like (N,) — degrees
+    spatial_freqs    : array-like (N,) — cycles per degree
+    phases           : array-like (N,) — fraction of cycle [0, 1]
+    size             : (H, W) in pixels
+    contrast         : float
+    max_pixel_value  : float
+    stripes_per_unit : float — calibration constant (sf=0.32 → 48 stripes)
+
+    Returns
+    -------
+    imgs : (N, H, W)
+    """
+    orientations  = np.asarray(orientations)
+    spatial_freqs = np.asarray(spatial_freqs)
+    phases        = np.asarray(phases)
+
+    N = len(orientations)
+
+    # x axis: 0 to 1, so sf * stripes_per_unit = number of cycles across width
+    x = np.linspace(0, 1, size[1])
+    y = np.linspace(0, 1, size[0])
+    X, Y = np.meshgrid(x, y)
+
+    imgs = np.empty((N, size[0], size[1]), dtype=np.float32)
+
+    for i in range(N):
+        theta = np.deg2rad(orientations[i])
+        sf    = spatial_freqs[i] * stripes_per_unit  # cycles across image
+        phi   = 2 * np.pi * phases[i]
+
+        # rotate coordinates
+        Xr = X * np.cos(theta) + Y * np.sin(theta)
+
+        # sinusoidal grating
+        img = contrast * np.sin(2 * np.pi * sf * Xr + phi)
+
+        # map [-1, 1] -> [0, max_pixel_value]
+        img = (0.5 + 0.5 * img) * max_pixel_value
+
+        imgs[i] = img.astype(np.float32)
+
+    return imgs
+
+
+class StaticGratingsDataset:
+    def __init__(self, session_id: int, cache_dir: str = "./session_data"):
+        """
+        Dataset for 1 session. Contains stimulus and neural activation data. 
+
+        Parameters
+            session_id: session to use
+            cache_dir: path to data directory
+        """
+        self.session_id = session_id
+        self.stimulus_name = "static_gratings"
+        self.data_dir = cache_dir+f"/session_{session_id}"
+
+        f = open(self.data_dir+"/metadata.json")
+        self.session_metadata = json.load(f)
+        f.close()
+        self.units = pd.read_csv(self.data_dir+"/units.csv",index_col=0)
+
+        self.stimulus_table = pd.read_csv(self.data_dir+"/static_gratings/stimulus.csv",index_col=0)
+        self.stimulus_table.dropna(inplace=True)
+        act_data = np.load(self.data_dir+"/static_gratings/activation.npz")
+        self.activation_data = act_data["data"]
+        self.presentation_ids = act_data["presentation_ids"]
+        self.timestamps = act_data["timestamps"]
+        self.unit_ids = act_data["unit_ids"]
+    
+    def list_possible_values(self, parameter_name: str) -> list:
+        """
+        Returns a list of all possible values of a parameter. 
+
+        Input
+            parameter_name: name of the parameter ('orientation', 'spatial_frequency', 'phase' or 'ecephys_structure_acronym')
+        
+        Output
+            list of possible values
+        """
+        if parameter_name=="ecephys_structure_acronym":
+            values = self.units.ecephys_structure_acronym.unique().tolist()
+        else:
+            values = self.stimulus_table[parameter_name].unique().tolist()
+        values.sort()
+        return values
+
+    def get_presentation_ids(self, orientation: int | list = None, spatial_frequency: float | list = None, phase: float | list = None) -> list:
+        """
+        Returns the presentation ids of a specific set of stimulus. 
+
+        Inputs
+            orientation: orientation of the gratings (if a list, returns all presentations where orientation is in the list)
+            spatial_frequency: spatial_frequency of the gratings (if a list, returns all presentations where spatial_frequency is in the list)
+            phase: phase of the gratings (if a list, returns all presentations where phase is in the list)
+
+        Outputs
+            list of presentation ids
+        """
+        selection = self.stimulus_table
+        if isinstance(orientation,(int,float)):
+            selection = selection[selection.orientation==orientation]
+        elif isinstance(orientation,(list,tuple,np.ndarray)):
+            selection = selection[selection.orientation.isin(orientation)]
+        if isinstance(spatial_frequency,(int,float)):
+            selection = selection[selection.spatial_frequency==spatial_frequency]
+        elif isinstance(spatial_frequency,(list,tuple,np.ndarray)):
+            selection = selection[selection.spatial_frequency.isin(spatial_frequency)]
+        if isinstance(phase,(int,float)):
+            selection = selection[selection.phase==phase]
+        elif isinstance(phase,(list,tuple,np.ndarray)):
+            selection = selection[selection.phase.isin(phase)]
+        return selection.index.to_list()
+
+    def get_unit_ids(self, ecephys_structure_acronym: str | list = None) -> list:
+        """
+        Returns the unit ids of a specific structure. 
+
+        Inputs
+            ecephys_structure_acronym: ecephys_structure_acronym of the units (if a list, returns all units where ecephys_structure_acronym is in the list)
+
+        Outputs
+            list of unit ids
+        """
+        selection = self.units
+        if isinstance(ecephys_structure_acronym,str):
+            selection = selection[selection.ecephys_structure_acronym==ecephys_structure_acronym]
+        elif isinstance(ecephys_structure_acronym,(list,tuple,np.ndarray)):
+            selection = selection[selection.ecephys_structure_acronym.isin(ecephys_structure_acronym)]
+        return selection.index.to_list()
+
+    def get_data(self, presentation_ids: list = None, unit_ids: list = None, stimulus_type: str = "images") -> tuple[np.ndarray,np.ndarray]:
+        """
+        Returns data (stimulus and neural activations) for specific presentations and units. 
+
+        Inputs
+            presentation_ids: list of presentation ids
+            unit_ids: list of unit ids
+            stimulus_type: type of stimulus to output ('images' or 'params')
+        
+        Outputs
+            stimulus array (len(presentation_ids), 250, 250) if stimulus_type='images' else (len(presentation_ids), 3)
+            neural activations array (len(presentation_ids), 100, len(unit_ids))
+        """
+        # Get index
+        if presentation_ids is None:
+            presentations = self.stimulus_table.index
+        else:
+            presentations = presentation_ids
+        presentation_map = {v: i for i,v in enumerate(self.presentation_ids)}
+        presentation_idx = [presentation_map[v] for v in presentations]
+        if unit_ids is None:
+            units = self.units.index
+        else:
+            units = unit_ids
+        unit_map = {v: i for i,v in enumerate(self.unit_ids)}
+        unit_idx = [unit_map[v] for v in units]
+
+        # Stimulus
+        stimulus_params = self.stimulus_table.loc[presentations]
+        if stimulus_type=="images":
+            stimulus = generate_gratings(stimulus_params.orientation,stimulus_params.spatial_frequency,stimulus_params.phase)
+        elif stimulus_type=="params":
+            stimulus = stimulus_params[["orientation","spatial_frequency","phase"]].to_numpy()
+        else:
+            raise ValueError("stimulus_type must be 'images' or 'params'")
+
+        # Neural activations
+        activations = self.activation_data[presentation_idx,:,:][:,:,unit_idx]
+
+        return stimulus, activations
+
+    def __repr__(self):
+        return self.__class__.__name__+f"(session_id={self.session_id})"
+
+
+class NaturalScenesDataset:
+    def __init__(self, session_id: int, cache_dir: str = "./session_data"):
+        """
+        Dataset for 1 session. Contains stimulus and neural activation data. 
+
+        Parameters
+            session_id: session to use
+            cache_dir: path to data directory
+        """
+        self.session_id = session_id
+        self.stimulus_name = "natural_scenes"
+        self.data_dir = cache_dir+f"/session_{session_id}"
+
+        f = open(self.data_dir+"/metadata.json")
+        self.session_metadata = json.load(f)
+        f.close()
+        self.units = pd.read_csv(self.data_dir+"/units.csv",index_col=0)
+
+        self.stimulus_table = pd.read_csv(self.data_dir+"/natural_scenes/stimulus.csv",index_col=0)
+        self.stimulus_table.dropna(inplace=True)
+        self.stimulus_table["frame"] = self.stimulus_table.frame.astype(int)
+        self.natural_scenes = np.load(cache_dir+"/natural_scenes.npy")
+        act_data = np.load(self.data_dir+"/natural_scenes/activation.npz")
+        self.activation_data = act_data["data"]
+        self.presentation_ids = act_data["presentation_ids"]
+        self.timestamps = act_data["timestamps"]
+        self.unit_ids = act_data["unit_ids"]
+    
+    def list_possible_values(self, parameter_name: str) -> list:
+        """
+        Returns a list of all possible values of a parameter. 
+
+        Input
+            parameter_name: name of the parameter ('frame' or 'ecephys_structure_acronym')
+        
+        Output
+            list of possible values
+        """
+        if parameter_name=="ecephys_structure_acronym":
+            values = self.units.ecephys_structure_acronym.unique().tolist()
+        else:
+            values = self.stimulus_table[parameter_name].unique().tolist()
+        values.sort()
+        return values
+
+    def get_presentation_ids(self, frame: int | list = None) -> list:
+        """
+        Returns the presentation ids of a specific set of stimulus. 
+
+        Inputs
+            frame: index of an image (if a list, returns all presentations where frame is in the list)
+
+        Outputs
+            list of presentation ids
+        """
+        selection = self.stimulus_table
+        if isinstance(frame,(int,float)):
+            selection = selection[selection.frame==frame]
+        elif isinstance(frame,(list,tuple,np.ndarray)):
+            selection = selection[selection.frame.isin(frame)]
+        return selection.index.to_list()
+
+    def get_unit_ids(self, ecephys_structure_acronym: str | list = None) -> list:
+        """
+        Returns the unit ids of a specific structure. 
+
+        Inputs
+            ecephys_structure_acronym: ecephys_structure_acronym of the units (if a list, returns all units where ecephys_structure_acronym is in the list)
+
+        Outputs
+            list of unit ids
+        """
+        selection = self.units
+        if isinstance(ecephys_structure_acronym,str):
+            selection = selection[selection.ecephys_structure_acronym==ecephys_structure_acronym]
+        elif isinstance(ecephys_structure_acronym,(list,tuple,np.ndarray)):
+            selection = selection[selection.ecephys_structure_acronym.isin(ecephys_structure_acronym)]
+        return selection.index.to_list()
+
+    def get_data(self, presentation_ids: list = None, unit_ids: list = None) -> tuple[np.ndarray,np.ndarray]:
+        """
+        Returns data (stimulus and neural activations) for specific presentations and units. 
+
+        Inputs
+            presentation_ids: list of presentation ids
+            unit_ids: list of unit ids
+        
+        Outputs
+            stimulus array (len(presentation_ids), 918, 1174)
+            neural activations array (len(presentation_ids), 100, len(unit_ids))
+        """
+        # Get index
+        if presentation_ids is None:
+            presentations = self.stimulus_table.index
+        else:
+            presentations = presentation_ids
+        presentation_map = {v: i for i,v in enumerate(self.presentation_ids)}
+        presentation_idx = [presentation_map[v] for v in presentations]
+        if unit_ids is None:
+            units = self.units.index
+        else:
+            units = unit_ids
+        unit_map = {v: i for i,v in enumerate(self.unit_ids)}
+        unit_idx = [unit_map[v] for v in units]
+
+        # Stimulus
+        frames = self.stimulus_table.loc[presentations,"frame"].values
+        stimulus = self.natural_scenes[frames,:,:]
+
+        # Neural activations
+        activations = self.activation_data[presentation_idx,:,:][:,:,unit_idx]
+
+        return stimulus, activations
+
+    def __repr__(self):
+        return self.__class__.__name__+f"(session_id={self.session_id})"
