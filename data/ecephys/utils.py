@@ -8,6 +8,7 @@ from allensdk.brain_observatory.ecephys.ecephys_project_api.rma_engine import Rm
 from allensdk.brain_observatory.ecephys.ecephys_project_api.utilities import build_and_execute
 from allensdk.brain_observatory.ecephys.ecephys_project_cache import EcephysProjectCache
 
+
 def retrieve_link(session_id: int, cache_dir: str = "./data") -> str:
     """
     Returns the download link of a session.  
@@ -15,7 +16,7 @@ def retrieve_link(session_id: int, cache_dir: str = "./data") -> str:
 
     Inputs
         session_id: session to download
-        cache_dir: path to cache
+        cache_dir: path to cache (where manifest.json is)
     
     Output
         download link
@@ -37,48 +38,53 @@ def retrieve_link(session_id: int, cache_dir: str = "./data") -> str:
     
     return 'http://api.brain-map.org/' + well_known_files['download_link'].iloc[0]
 
-def download_data(session_id: int, cache_dir: str = "./data"):
+
+def download_data(session_id: int, cache_dir: str = "./data", n_bins_activation: int = 100):
     """
     Saves the relevant data of a session.  
     The session must have been downloaded before. 
 
     Inputs
         session_id: session to save
-        cache_dir: path to cache
+        cache_dir: path to cache (where manifest.json is)
+        n_bins_activation: number of bins for activation data (default is 100)
     """
     assert os.path.exists(cache_dir+f"/session_{session_id}/session_{session_id}.nwb"), "session nwb file not found"
     cache = EcephysProjectCache.from_warehouse(manifest=cache_dir+"/manifest.json")
     session = cache.get_session_data(session_id)
+    os.makedirs(cache_dir+f"/session_{session_id}/static_gratings",exist_ok=True)
+    os.makedirs(cache_dir+f"/session_{session_id}/natural_scenes",exist_ok=True)
 
-    if not os.path.exists(cache_dir+f"/session_{session_id}/metadata.json"):
-        f = open(cache_dir+f"/session_{session_id}/metadata.json","w")
-        try:
-            metadata = session.metadata.copy()
-            metadata["session_start_time"] = metadata.get("session_start_time",datetime.datetime(1,1,1)).strftime("%Y-%m-%d %H:%M:%S")
-            json.dump(metadata,f)
-        except Exception:
-            print(f"Erreur lors de la récupération des métadonnées de la session {session_id}")
-        f.close()
+    # Metadata and units
+    f = open(cache_dir+f"/session_{session_id}/metadata.json","w")
+    metadata = session.metadata.copy()
+    metadata["session_start_time"] = metadata.get("session_start_time",datetime.datetime(1,1,1)).strftime("%Y-%m-%d %H:%M:%S")
+    json.dump(metadata,f)
+    f.close()
+    VIS_units = session.units.query("ecephys_structure_acronym in ['VISp','VISl','VISal','VISrl','VISpm','VISam']")
+    VIS_units[["ecephys_structure_acronym"]].to_csv(cache_dir+f"/session_{session_id}/units.csv")
 
-    if not os.path.exists(cache_dir+f"/session_{session_id}/units.csv"):
-        try:
-            session.units.to_csv(cache_dir+f"/session_{session_id}/units.csv")
-        except Exception:
-            print(f"Erreur lors de la récupération des unités de la session {session_id}")
+    # Stimulus
+    stimulus = session.get_stimulus_table()
 
-    if not os.path.exists(cache_dir+f"/session_{session_id}/stimulus_table.csv"):
-        try:
-            stimulus_table = session.get_stimulus_table(include_detailed_parameters=True,include_unused_parameters=True)
-        except Exception:
-            print(f"Erreur lors de la récupération de la table des stimulus de la session {session_id}")
-        stimulus_table.to_csv(cache_dir+f"/session_{session_id}/stimulus_table.csv")
+    ## Static gratings
+    static_gratings = stimulus.query("stimulus_name=='static_gratings'")
+    static_gratings[["orientation","spatial_frequency","phase","contrast","size","duration"]].to_csv(cache_dir+f"/session_{session_id}/static_gratings/stimulus.csv")
 
-    if not os.path.exists(cache_dir+f"/session_{session_id}/spike_times.json"):
-        try:
-            spike_times = session.presentationwise_spike_times()
-        except Exception:
-            print(f"Erreur lors de la récupération des temps de pic de la session {session_id}")
-        spike_times.to_csv(cache_dir+f"/session_{session_id}/spike_times.csv")
+    ## Natural scenes
+    natural_scenes = stimulus.query("stimulus_name=='natural_scenes'")
+    natural_scenes[["frame","duration"]].to_csv(cache_dir+f"/session_{session_id}/natural_scenes/stimulus.csv")
+
+    # Neural activity
+    
+    ## Static gratings
+    activations1 = session.presentationwise_spike_counts(np.linspace(0,static_gratings.duration.max(),n_bins_activation+1),static_gratings.index,VIS_units.index)
+    np.savez(cache_dir+f"/session_{session_id}/static_gratings/activation.npz",data=activations1.data,presentation_ids=activations1.stimulus_presentation_id.data,timestamps=activations1.time_relative_to_stimulus_onset.data,unit_ids=activations1.unit_id.data)
+
+    ## Natural scenes
+    activations2 = session.presentationwise_spike_counts(np.linspace(0,natural_scenes.duration.max(),n_bins_activation+1),natural_scenes.index,VIS_units.index)
+    np.savez(cache_dir+f"/session_{session_id}/natural_scenes/activation.npz",data=activations2.data,presentation_ids=activations2.stimulus_presentation_id.data,timestamps=activations2.time_relative_to_stimulus_onset.data,unit_ids=activations2.unit_id.data)
+
 
 def get_full_raster(spike_times: pd.DataFrame, duration: float, unit_ids: list) -> np.ndarray:
     """
@@ -100,6 +106,7 @@ def get_full_raster(spike_times: pd.DataFrame, duration: float, unit_ids: list) 
         times = np.array((1e6*spike_times[spike_times.unit_id==unit].time_since_stimulus_presentation_onset).astype(int))
         raster[i,times] = 1.0
     return raster
+
 
 def plot_full_raster(spike_times: pd.DataFrame, unit_ids: list):
     """
