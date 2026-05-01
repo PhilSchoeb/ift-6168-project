@@ -442,7 +442,7 @@ class NaturalScenesDataset:
         return self.__class__.__name__+f"(session_id={self.session_id})"
 
 
-def plot_data_samples(stimulus: np.ndarray, activation: np.ndarray, n_samples: int, random_sate: int = None):
+def plot_data_samples(stimulus: np.ndarray, activation: np.ndarray, n_samples: int, random_state: int = None):
     """
     Plots samples from a dataset (stimulus and neural activations). 
 
@@ -452,20 +452,20 @@ def plot_data_samples(stimulus: np.ndarray, activation: np.ndarray, n_samples: i
         n_samples: number of samples to show
         random_sate: random seed
     """
-    if random_sate!=None:
-        np.random.seed(random_sate)
-    samples = np.random.choice(range(stimulus.shape[0]),size=n_samples,replace=False)
+    if random_state!=None:
+        np.random.seed(random_state)
+    samples = np.random.choice(np.arange(stimulus.shape[0]),size=n_samples,replace=False)
     if n_samples>1:
         fig, ax = plt.subplots(nrows=n_samples,ncols=2,figsize=(10,10))
         for i, x in enumerate(samples):
             if stimulus.ndim==3:
-                ax[i,0].imshow(stimulus[i],cmap="gray")
+                ax[i,0].imshow(stimulus[x],cmap="gray")
             else:
-                stim = generate_gratings([stimulus[i,0]],[stimulus[i,1]],[stimulus[i,2]])
+                stim = generate_gratings([stimulus[x,0]],[stimulus[x,1]],[stimulus[x,2]])
                 ax[i,0].imshow(stim[0],cmap="gray")
-                ax[i,0].text(1.05, 0.8, f"orientation={stimulus[i,0]}", transform=ax[i,0].transAxes, fontsize=8, va='top')
-                ax[i,0].text(1.05, 0.6, f"spatial_frequency={stimulus[i,1]}", transform=ax[i,0].transAxes, fontsize=8, va='top')
-                ax[i,0].text(1.05, 0.4, f"phase={stimulus[i,2]}", transform=ax[i,0].transAxes, fontsize=8, va='top')
+                ax[i,0].text(1.05, 0.8, f"orientation={stimulus[x,0]}", transform=ax[i,0].transAxes, fontsize=8, va='top')
+                ax[i,0].text(1.05, 0.6, f"spatial_frequency={stimulus[x,1]}", transform=ax[i,0].transAxes, fontsize=8, va='top')
+                ax[i,0].text(1.05, 0.4, f"phase={stimulus[x,2]}", transform=ax[i,0].transAxes, fontsize=8, va='top')
             ax[i,0].axis("off")
             ax[i,1].imshow(activation[i].T,aspect="auto")
             ax[i,1].set_xlabel("Timestep")
