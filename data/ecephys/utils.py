@@ -10,14 +10,15 @@ from allensdk.brain_observatory.ecephys.ecephys_project_cache import EcephysProj
 
 def retrieve_link(session_id: int, cache_dir: str = "./data") -> str:
     """
-    Fonction qui retourne le lien de téléchargement d'une session. 
+    Returns the download link of a session.  
+    Also creates the directory for the nwb file. 
 
-    Entrées
-        session_id: id de la session à télécharger
-        cache_dir: chemin de la cache
+    Inputs
+        session_id: session to download
+        cache_dir: path to cache
     
-    Sortie
-        lien de téléchargement
+    Output
+        download link
     """
     os.makedirs(cache_dir+f"/session_{session_id}",exist_ok=True)
     
@@ -38,14 +39,14 @@ def retrieve_link(session_id: int, cache_dir: str = "./data") -> str:
 
 def download_data(session_id: int, cache_dir: str = "./data"):
     """
-    Fonction qui enregistre les données d'une session. 
-    La session doit avoir été téléchargée auparavant. 
+    Saves the relevant data of a session.  
+    The session must have been downloaded before. 
 
-    Entrées
-        session_id: id de la session
-        cache_dir: chemin de la cache
+    Inputs
+        session_id: session to save
+        cache_dir: path to cache
     """
-    assert os.path.exists(cache_dir+f"/session_{session_id}/session_{session_id}.nwb"), "la session doit avoir été téléchargée"
+    assert os.path.exists(cache_dir+f"/session_{session_id}/session_{session_id}.nwb"), "session nwb file not found"
     cache = EcephysProjectCache.from_warehouse(manifest=cache_dir+"/manifest.json")
     session = cache.get_session_data(session_id)
 
@@ -91,6 +92,9 @@ def get_full_raster(spike_times: pd.DataFrame, duration: float, unit_ids: list) 
     Output
         array of shape (n_units, duration_ms) where n_units is the number of units and duration_ms is the duration in microseconds
     """
+    assert isinstance(spike_times,pd.DataFrame), f"spike_times must be a DataFrame, not {type(spike_times)}"
+    assert "unit_id" in spike_times.columns, "spike_times must have a column 'unit_id'"
+    assert "time_since_stimulus_presentation_onset" in spike_times.columns, "spike_times must have a column 'time_since_stimulus_presentation_onset'"
     raster = np.zeros((len(unit_ids),int(duration*1e6)+1))
     for i, unit in enumerate(unit_ids):
         times = np.array((1e6*spike_times[spike_times.unit_id==unit].time_since_stimulus_presentation_onset).astype(int))
@@ -99,7 +103,7 @@ def get_full_raster(spike_times: pd.DataFrame, duration: float, unit_ids: list) 
 
 def plot_full_raster(spike_times: pd.DataFrame, unit_ids: list):
     """
-    Plots the raster according to spike_times data. 
+    Plots the raster according to spike_times data.  
     Source : ChatGPT
 
     Inputs
