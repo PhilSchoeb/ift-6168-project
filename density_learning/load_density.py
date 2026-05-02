@@ -60,8 +60,8 @@ def visualize_density(density, name="density.pkl"):
 
 
 def main():
-    #name = "density.pkl"
-    name = "density_v2.pkl"
+    name = "density.pkl"
+    #name = "density_nadaraya_watson.pkl"
     density = load_object(name)
     visualize_density(density, name)
     print(f"density object loaded. Type: {type(density)}")
@@ -84,8 +84,8 @@ def main():
         print(f"No sum across axis returns only values of 1: density does not represent target conditional "
               f"probabilities.")
     elif axis_0_changes_j and axis_1_changes_j:
-        print(f"Both sums across axis return only values of 1: density does not represent target conditional "
-              f"probabilities.")
+        print(f"Both sums across axis return only values of 1: density might represent target conditional probabilities"
+              f" but sums across both axis should not all equal to 1.")
     else:
         if axis_0_changes_j:
             print(f"Axis 0 changes j values and density is the target conditional probability distribution.")

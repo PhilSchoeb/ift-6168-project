@@ -125,33 +125,50 @@ def get_density_fRFCDE(i, j, n_trees=100, mtry=2, node_size=10, n_basis=None, ba
     return density
 
 
-def get_sklearn_rbf_kernel_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
+def get_nadaraya_watson_sklearn_pairwise_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
+    """
+    Estimate P(J=j_b | I=i_a) for all pairs (a, b).
+
+    Args:
+        i: (num_samples, n_i)
+        j: (num_samples, n_j)
+        bandwidth_i: float value for rbf bandwidth on i
+        bandwidth_j: float value for rbf bandwidth on j
+
+    Returns:
+        P: (num_samples, num_samples) where P[a, b] = P(J=j_b | I=i_a)
+    """
     num_samples = i.shape[0]
     assert j.shape[0] == num_samples
     assert len(i.shape) == 2
     assert len(j.shape) == 2
+    gamma_i = 1.0 / bandwidth_i**2
+    gamma_j = 1.0 / bandwidth_j**2
 
-    K_i = rbf_kernel(i, gamma=1.0/bandwidth_i**2)
-    K_j = rbf_kernel(j, gamma=1.0/bandwidth_j**2)
+    # K_i[a, s] = K(i_a, i_s) — shape (num_samples, num_samples)
+    K_i = rbf_kernel(i, i, gamma=gamma_i)
+
+    # K_j[b, s] = K(j_b, j_s) — shape (num_samples, num_samples)
+    K_j = rbf_kernel(j, j, gamma=gamma_j)
 
     assert K_i.shape == (num_samples, num_samples)
     assert K_j.shape == (num_samples, num_samples)
 
-    # Joint
-    K_joint = K_i * K_j
-    assert K_joint.shape == (num_samples, num_samples)
-    #K_joint /= K_joint.sum()  # full matrix sums to 1
+    # joint[a, b] = Σ_s K(i_a, i_s) * K(j_b, j_s)
+    # = K_i[a, :] @ K_j[b, :].T  =>  K_i @ K_j.T
+    joint = K_i @ K_j.T  # (num_samples, num_samples)
 
-    # Conditional: P(j_b | i_a) = P(i_a, j_b) / P(i_a)
-    # P(i_a) = marginal = sum over b of joint[a, b]
-    K_marginal_i = K_joint.sum(axis=1, keepdims=True)  # (N, 1)
-    K_conditional = K_joint / K_marginal_i  # each row sums to 1
-    assert K_conditional.shape == (num_samples, num_samples)
+    # marginal[a] = Σ_s K(i_a, i_s)
+    marginal = K_i.sum(axis=1)  # (num_samples,)
 
-    return K_conditional  # conditional[a, b] = P(j_b | i_a)
+    # P[a, b] = joint[a, b] / marginal[a]
+    conditional = joint / (marginal[:, None] + 1e-10)
+    assert conditional.shape == (num_samples, num_samples)
+
+    return conditional
 
 
-def get_sklearn_kernel_density(i, j, bandwidth_joint=1.0, bandwidth_i=1., algorithm="auto", kernel="gaussian"):
+def get_sklearn_kernel_density(i, j, bandwidth_joint=1.0, bandwidth_i=1.0, algorithm="auto", kernel="gaussian"):
     """
     Computes the density of the joint on i and j, then divides by density on i according to:
     P(J=j|man(I=i)) = P(J=j, man(I=i)) / P(man(I=i))
@@ -246,14 +263,15 @@ def main():
     #density = get_density_RFCDE(i, j_reduced_pca, n_basis=5, bandwidth=0.005)
 
     # SECOND TRY ###############################################################
-    #first_bandwidth = bandwidth_i
-    #second_bandwidth = bandwidth_j
-    #density = get_sklearn_rbf_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
+    first_bandwidth = bandwidth_i
+    second_bandwidth = bandwidth_j
+    density = get_nadaraya_watson_sklearn_pairwise_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
 
     # THIRD TRY ################################################################
-    first_bandwidth = bandwidth_joint
-    second_bandwidth = bandwidth_i
-    density = get_sklearn_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
+    #first_bandwidth = bandwidth_joint
+    #second_bandwidth = bandwidth_i
+    #density = get_sklearn_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
+
     print(type(density))
     save_name = "density.pkl"
     save_path = os.path.join(FILE_PATH, "out", save_name)
