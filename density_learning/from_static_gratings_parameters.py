@@ -8,7 +8,11 @@ And assuming J of shape (num_static_gratings, num_bins, num_neurons)
 
 import sys
 import os
+
+import numpy as np
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+FILE_PATH = os.path.dirname(__file__)
 
 from data import StaticGratingsDataset
 
@@ -17,6 +21,8 @@ import rfcde
 from scipy.sparse import csr_matrix
 from sklearn.decomposition import NMF, TruncatedSVD, PCA
 from sklearn.metrics.pairwise import rbf_kernel
+from sklearn.neighbors import KernelDensity
+from sklearn.preprocessing import StandardScaler
 
 def j_dimensionality_reductions(j, n_components, return_explained_var=False):
     assert len(j.shape) == 3, f"j shape has to be (num_static_gratings, num_bins, num_neurons)"
@@ -119,21 +125,92 @@ def get_density_fRFCDE(i, j, n_trees=100, mtry=2, node_size=10, n_basis=None, ba
     return density
 
 
-def get_sklearn_kernel_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
+def get_sklearn_rbf_kernel_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
     num_samples = i.shape[0]
     assert j.shape[0] == num_samples
     assert len(i.shape) == 2
     assert len(j.shape) == 2
 
-    x_weights = rbf_kernel(i, gamma=1.0/bandwidth_i**2)
-    y_weights = rbf_kernel(j, gamma=1.0/bandwidth_j**2)
+    K_i = rbf_kernel(i, gamma=1.0/bandwidth_i**2)
+    K_j = rbf_kernel(j, gamma=1.0/bandwidth_j**2)
 
-    # Nadaraya-Watson
-    conditional = (x_weights * y_weights)
-    conditional /= x_weights.sum(axis=1, keepdims=True)
+    assert K_i.shape == (num_samples, num_samples)
+    assert K_j.shape == (num_samples, num_samples)
 
+    # Joint
+    K_joint = K_i * K_j
+    assert K_joint.shape == (num_samples, num_samples)
+    #K_joint /= K_joint.sum()  # full matrix sums to 1
+
+    # Conditional: P(j_b | i_a) = P(i_a, j_b) / P(i_a)
+    # P(i_a) = marginal = sum over b of joint[a, b]
+    K_marginal_i = K_joint.sum(axis=1, keepdims=True)  # (N, 1)
+    K_conditional = K_joint / K_marginal_i  # each row sums to 1
+    assert K_conditional.shape == (num_samples, num_samples)
+
+    return K_conditional  # conditional[a, b] = P(j_b | i_a)
+
+
+def get_sklearn_kernel_density(i, j, bandwidth_joint=1.0, bandwidth_i=1., algorithm="auto", kernel="gaussian"):
+    """
+    Computes the density of the joint on i and j, then divides by density on i according to:
+    P(J=j|man(I=i)) = P(J=j, man(I=i)) / P(man(I=i))
+    """
+    kd_joint = KernelDensity(bandwidth=bandwidth_joint, algorithm=algorithm, kernel=kernel)
+    kd_i = KernelDensity(bandwidth=bandwidth_i, algorithm=algorithm, kernel=kernel)
+
+    num_samples = i.shape[0]
+    num_features_i = i.shape[1]
+    num_features_j = j.shape[1]
+    joint = np.concatenate([i, j], axis=1)
+    complete_joint = np.concatenate(
+        [
+            np.repeat(i, num_samples, axis=0),
+            np.tile(j, (num_samples, 1))
+        ],
+        axis=1
+    )
+    assert joint.shape == (num_samples, num_features_i + num_features_j)
+    assert complete_joint.shape == (num_samples**2, num_features_i + num_features_j)
+
+    # Fit kernel density estimation routines
+    kd_joint.fit(joint)
+    kd_i.fit(i)
+
+    # Retrieve log probabilities from kernel density on complete_joint
+    log_prob_joint = kd_joint.score_samples(complete_joint)
+    log_prob_i = kd_i.score_samples(i)
+
+    log_prob_joint = log_prob_joint.reshape(num_samples, num_samples)
+    log_conditional = log_prob_joint - log_prob_i[:, None]
+
+    conditional = np.exp(log_conditional)
     assert conditional.shape == (num_samples, num_samples)
+    print(f" Max conditional value (prenorm): {np.max(conditional)}, min conditional value (prenorm): "
+          f"{np.min(conditional)}")
+
+    # Normalization
+    sum_across_js = np.sum(conditional, axis=1)[:, None]
+    assert sum_across_js.shape == (num_samples, 1)
+    conditional = conditional / sum_across_js
+    assert conditional.shape == (num_samples, num_samples)
+    print(f" Max conditional value (postnorm): {np.max(conditional)}, min conditional value (postnorm): "
+          f"{np.min(conditional)}")
+
     return conditional
+
+
+def standardize_data(data, dims=None):
+    assert len(data.shape) == 2
+    # If no dims provided, all dims are standardized
+    if dims is None:
+        len_dims = data.shape[1]
+        dims = range(len_dims)
+
+    sc = StandardScaler()
+    data[:, dims] = sc.fit_transform(data[:, dims])
+    return data
+
 
 def main():
     print("Getting dataset...")
@@ -142,21 +219,48 @@ def main():
     visp_units = sg_dataset.get_unit_ids("VISp")
     X_sg, y_sg = sg_dataset.get_data(presentation_ids=h_v_bars, unit_ids=visp_units, stimulus_type="params")
     i = X_sg
-    #TODO preprocess i to have same scale as j
     j = y_sg
     print(f"i shape: {i.shape}")
     print(f"j shape: {j.shape}")
+
     print("Applying dimensionality reductions to J...")
     j_reduced_svd, j_reduced_nmf, j_reduced_pca = j_dimensionality_reductions(y_sg, 20, True)
     print(f"j_reduced_pca shape: {j_reduced_pca.shape}")
+
+    print(f"Standardizing data...")
+    i = standardize_data(i)
+    j_reduced_pca = standardize_data(j_reduced_pca)
+    print(f"i means: {np.mean(i, axis=0)}")
+    print(f"i stds: {np.std(i, axis=0)}")
+    print(f"j means: {np.mean(j_reduced_pca, axis=0)}")
+    print(f"j stds: {np.std(j_reduced_pca, axis=0)}")
+
     print("Calculating conditional density...")
+    num_features_i = i.shape[1]
+    num_features_j = j_reduced_pca.shape[1]
+    bandwidth_i = 1.0 / float(num_features_i)
+    bandwidth_j = 1.0 / float(num_features_j)
+    bandwidth_joint = 1.0 / (float(num_features_i + num_features_j))
+
+    # FIRST TRY ###############################################################
     #density = get_density_RFCDE(i, j_reduced_pca, n_basis=5, bandwidth=0.005)
-    density = get_sklearn_kernel_density(i, j_reduced_pca)
+
+    # SECOND TRY ###############################################################
+    #first_bandwidth = bandwidth_i
+    #second_bandwidth = bandwidth_j
+    #density = get_sklearn_rbf_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
+
+    # THIRD TRY ################################################################
+    first_bandwidth = bandwidth_joint
+    second_bandwidth = bandwidth_i
+    density = get_sklearn_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
     print(type(density))
     save_name = "density.pkl"
-    with open(save_name, "wb") as f:
+    save_path = os.path.join(FILE_PATH, "out", save_name)
+    with open(save_path, "wb") as f:
         pickle.dump(density, f)
-    print(f"Density estimation done. density object saved as {save_name}")
+    print(f"Density estimation done with bandwidths = {first_bandwidth}, {second_bandwidth}. density object"
+          f" saved as {save_path}")
 
 
 if __name__ == "__main__":

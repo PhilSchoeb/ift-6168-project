@@ -212,3 +212,4 @@ __marimo__/
 *brain_observatory/
 *.npz
 *session_data/
+*/out/*
