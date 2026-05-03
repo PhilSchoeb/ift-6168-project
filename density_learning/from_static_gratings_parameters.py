@@ -9,13 +9,12 @@ And assuming J of shape (num_static_gratings, num_bins, num_neurons)
 import sys
 import os
 
-import numpy as np
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 
 from data import StaticGratingsDataset
 
+import numpy as np
 import pickle
 import rfcde
 from scipy.sparse import csr_matrix
@@ -259,15 +258,15 @@ def main():
     bandwidth_j = 1.0 / float(num_features_j)
     bandwidth_joint = 1.0 / (float(num_features_i + num_features_j))
 
-    # FIRST TRY ###############################################################
+    # FIRST METHOD (FAIL) ###############################################################
     #density = get_density_RFCDE(i, j_reduced_pca, n_basis=5, bandwidth=0.005)
 
-    # SECOND TRY ###############################################################
+    # SECOND METHOD ###############################################################
     first_bandwidth = bandwidth_i
     second_bandwidth = bandwidth_j
     density = get_nadaraya_watson_sklearn_pairwise_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
 
-    # THIRD TRY ################################################################
+    # THIRD METHOD ################################################################
     #first_bandwidth = bandwidth_joint
     #second_bandwidth = bandwidth_i
     #density = get_sklearn_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
