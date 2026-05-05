@@ -213,3 +213,6 @@ __marimo__/
 *.npz
 *session_data/
 */out/*
+*logs/
+*models/
+*checkpoints/
