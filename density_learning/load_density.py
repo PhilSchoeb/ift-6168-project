@@ -7,6 +7,8 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 
+import argparse
+from matplotlib import colors
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,11 +40,24 @@ def visualize_density(density, name="density.pkl"):
     # Add mask to highlight values of 0
     masked = np.ma.masked_where(density == 0, density)
 
-    # Use gray colormap to stand out around the possibly numerous red values
-    cmap = cm.gray_r.copy()
-    cmap.set_bad(color="red")  # color for zeros
+    if np.any(density == 0):
+        # At least one probability is exactly zero
+        cmap = cm.gray_r.copy()
+        cmap.set_bad(color="red")
+    else:
+        # Default when all probabilities are superior to zero
+        cmap = cm.viridis.copy()
 
-    im = ax.imshow(masked, cmap=cmap)
+    # LogNorm mapping from values to colors because all values are really close to zero
+    # This is simply to have a better visualization of density estimation
+    nonzero = density[density > 0]
+
+    vmin = np.percentile(nonzero, 15)  # clip v_min as the 15 percentile of lower values because true v_min is too small
+    vmax = nonzero.max()
+
+    norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+
+    im = ax.imshow(masked, cmap=cmap, norm=norm)
     plt.colorbar(im, ax=ax)
 
     # Optional labels/title
@@ -50,9 +65,10 @@ def visualize_density(density, name="density.pkl"):
     ax.set_xlabel("j")
     ax.set_ylabel("i")
 
-    # ---- add legend for zeros ----
-    zero_patch = mpatches.Patch(color="red", label="Exact 0 values")
-    ax.legend(handles=[zero_patch], loc="upper right")
+    if np.any(density == 0):
+        # Add legend if at least one probability is exactly zero
+        zero_patch = mpatches.Patch(color="red", label="Exact 0 values")
+        ax.legend(handles=[zero_patch], loc="upper right")
 
     figure_name = f"{density_name}_visu"
     save_path = os.path.join(FILE_PATH, "out", figure_name)
@@ -60,8 +76,12 @@ def visualize_density(density, name="density.pkl"):
 
 
 def main():
-    name = "density.pkl"
-    #name = "density_nadaraya_watson.pkl"
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--file_name", type=str, required=False, default="density.pkl")
+    args = parser.parse_args()
+
+    name = args.file_name
     density = load_object(name)
     visualize_density(density, name)
     print(f"density object loaded. Type: {type(density)}")
