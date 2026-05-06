@@ -62,8 +62,8 @@ def visualize_density(density, name="density.pkl"):
 
     # Optional labels/title
     ax.set_title("Conditional density estimation (P(J=j | man(I=i)))")
-    ax.set_xlabel("j")
-    ax.set_ylabel("i")
+    ax.set_xlabel("i")
+    ax.set_ylabel("j")
 
     if np.any(density == 0):
         # Add legend if at least one probability is exactly zero
