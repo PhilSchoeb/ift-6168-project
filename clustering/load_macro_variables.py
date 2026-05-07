@@ -25,12 +25,14 @@ def visualize_macros(eft_mac, cs_mac):
         im = ax.imshow(mat, cmap="viridis")
 
         ax.set_title(title)
-        if title == "EFT MAC":
-            ax.set_xlabel("E")
-            ax.set_ylabel("C")
-        elif title == "CS MAC":
-            ax.set_xlabel("C")
-            ax.set_ylabel("E")
+
+        ax.set_xlabel("E" if title == "EFT MAC" else "C")
+        ax.set_ylabel("C" if title == "EFT MAC" else "E")
+
+        ax.set_xticks(np.arange(mat.shape[1]))
+        ax.set_yticks(np.arange(mat.shape[0]))
+        ax.set_xticklabels(np.arange(mat.shape[1]))
+        ax.set_yticklabels(np.arange(mat.shape[0]))
 
         # ---- GRID LINES ----
 
@@ -43,6 +45,13 @@ def visualize_macros(eft_mac, cs_mac):
 
         # Remove minor tick marks
         ax.tick_params(which="minor", bottom=False, left=False)
+
+        # ---- CELL VALUES ----
+        for (row, col), val in np.ndenumerate(mat):
+            text_color = "white" if val < 0.5 else "black"
+            label = "0" if val <= 0.005 else f"{val:.2f}"
+            ax.text(col, row, label, ha="center", va="center",
+                    fontsize=10, fontweight="bold", color=text_color)
 
         fig.colorbar(im, ax=ax)
 

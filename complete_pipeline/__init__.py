@@ -1,0 +1,1 @@
+from helper import generate_help_text

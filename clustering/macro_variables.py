@@ -112,7 +112,8 @@ def main():
     visp_units = sg_dataset.get_unit_ids("VISp")
     X_sg, y_sg = sg_dataset.get_data(presentation_ids=h_v_bars, unit_ids=visp_units, stimulus_type="params")
     i = X_sg
-    j = y_sg
+    # Transpose to have shape (num_samples, num_neurons, num_bins)
+    j = np.transpose(y_sg, (0, 2, 1))
 
     visualize_samples_from_clusters(i, j, eft_clusters, cs_clusters)
 
