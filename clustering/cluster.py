@@ -32,7 +32,6 @@ def cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, **kwargs):
     return eft_clusters, cs_clusters, means_eft, means_cs
 
 
-
 def cluster(eft_mic, cs_mic, cluster_method="dirichlet_process_gaussian_mixture", **kwargs):
     if cluster_method == "dirichlet_process_gaussian_mixture":
         eft_clusters, cs_clusters, means_eft, means_cs = cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, **kwargs)
@@ -56,16 +55,17 @@ def main():
     density = load_object(name)
     num_samples = density.shape[0]
     eft_mic, cs_mic = get_micro_causes_effects(density)
-    #eft_mic = convert_probs_to_logprobs(eft_mic)
-    #cs_mic = convert_probs_to_logprobs(cs_mic)
+    eft_mic = convert_probs_to_logprobs(eft_mic)
+    cs_mic = convert_probs_to_logprobs(cs_mic)
 
     cluster_method = "dirichlet_process_gaussian_mixture"
+    max_num_cluster = 10
     print(f"Clustering...")
     eft_clusters, cs_clusters, means_eft, means_cs = cluster(
         eft_mic,
         cs_mic,
         cluster_method=cluster_method,
-        n_components=20
+        n_components=max_num_cluster
     )
     assert eft_clusters.ndim == 1 and cs_clusters.ndim == 1
     assert means_eft.ndim == 2 and means_cs.ndim == 2
@@ -74,13 +74,13 @@ def main():
 
     print(f"Clustering done;\nnumber of eft clusters: {num_eft_clusters}\nnumber of cs clusters: {num_cs_clusters}")
 
-    file_path_eft_clusters = os.path.join(FILE_PATH, f"out/eft_clusters_{cluster_method}")
+    file_path_eft_clusters = os.path.join(FILE_PATH, f"out/eft_clusters_{num_eft_clusters}_{cluster_method}")
     np.save(file_path_eft_clusters, eft_clusters)
-    file_path_cs_clusters = os.path.join(FILE_PATH, f"out/cs_clusters_{cluster_method}")
+    file_path_cs_clusters = os.path.join(FILE_PATH, f"out/cs_clusters_{num_cs_clusters}_{cluster_method}")
     np.save(file_path_cs_clusters, cs_clusters)
-    file_path_eft_means = os.path.join(FILE_PATH, f"out/eft_means_{cluster_method}")
+    file_path_eft_means = os.path.join(FILE_PATH, f"out/eft_means_{num_eft_clusters}_{cluster_method}")
     np.save(file_path_eft_means, means_eft)
-    file_path_cs_means = os.path.join(FILE_PATH, f"out/cs_means_{cluster_method}")
+    file_path_cs_means = os.path.join(FILE_PATH, f"out/cs_means_{num_cs_clusters}_{cluster_method}")
     np.save(file_path_cs_means, means_cs)
 
 

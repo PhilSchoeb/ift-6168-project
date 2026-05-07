@@ -1,0 +1,50 @@
+experiment_name: all_hyperparameters
+
+experiment_file:
+  - 750332458
+  - 750749662
+  - 754312389
+  - all
+
+i_dataset:
+  - static_gratings_params
+  - static_gratings_images
+  - natural_images
+  - static_and_natural_images
+
+# For the j_dataset (any value)
+num_bins:
+  - 25
+  - 50
+  - 100
+  - 200
+
+# For the j_dataset (any value)
+num_neurons:
+  - 25
+  - 50
+  - 100
+  - all
+
+# For the j_dataset
+neuron_selection:
+  - variance
+
+dimensionality_reduction:
+  - autoencoder
+  - pca
+  - truncatedsvd
+  - nmf
+
+density_estimator:
+  - nadaraya_watson
+
+clustering:
+  - dirichlet_process_gaussian_mixture
+
+# Any value
+num_clusters:
+  - 10
+  - 20
+  - 40
+  - 80
