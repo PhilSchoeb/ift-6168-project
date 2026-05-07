@@ -1,1 +1,1 @@
-from .ecephys.utils import generate_gratings, StaticGratingsDataset, NaturalScenesDataset
+from .ecephys.utils import generate_gratings, StaticGratingsDataset, NaturalScenesDataset, plot_data_samples
