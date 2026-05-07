@@ -124,7 +124,7 @@ def get_density_fRFCDE(i, j, n_trees=100, mtry=2, node_size=10, n_basis=None, ba
     return density
 
 
-def get_nadaraya_watson_sklearn_pairwise_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
+def get_nadaraya_watson_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
     """
     Estimate P(J=j_b | I=i_a) for all pairs (a, b).
 
@@ -164,7 +164,8 @@ def get_nadaraya_watson_sklearn_pairwise_density(i, j, bandwidth_i=1.0, bandwidt
     conditional = joint / (marginal[:, None] + 1e-10)
     assert conditional.shape == (num_samples, num_samples)
 
-    return conditional
+    # Transpose so first dim: change j & second dim: change i
+    return np.transpose(conditional)
 
 
 def get_sklearn_kernel_density(i, j, bandwidth_joint=1.0, bandwidth_i=1.0, algorithm="auto", kernel="gaussian"):
@@ -240,7 +241,7 @@ def main():
     print(f"j shape: {j.shape}")
 
     print("Applying dimensionality reductions to J...")
-    j_reduced_svd, j_reduced_nmf, j_reduced_pca = j_dimensionality_reductions(y_sg, 20, True)
+    j_reduced_svd, j_reduced_nmf, j_reduced_pca = j_dimensionality_reductions(j, 20, True)
     print(f"j_reduced_pca shape: {j_reduced_pca.shape}")
 
     print(f"Standardizing data...")
@@ -258,15 +259,15 @@ def main():
     bandwidth_j = 1.0 / float(num_features_j)
     bandwidth_joint = 1.0 / (float(num_features_i + num_features_j))
 
-    # FIRST METHOD (FAIL) ###############################################################
+    # FIRST METHOD (CRASHES) ###############################################################
     #density = get_density_RFCDE(i, j_reduced_pca, n_basis=5, bandwidth=0.005)
 
-    # SECOND METHOD ###############################################################
+    # SECOND METHOD (WORKS) ###############################################################
     first_bandwidth = bandwidth_i
     second_bandwidth = bandwidth_j
-    density = get_nadaraya_watson_sklearn_pairwise_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
+    density = get_nadaraya_watson_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)
 
-    # THIRD METHOD ################################################################
+    # THIRD METHOD (FAILS) ################################################################
     #first_bandwidth = bandwidth_joint
     #second_bandwidth = bandwidth_i
     #density = get_sklearn_kernel_density(i, j_reduced_pca, first_bandwidth, second_bandwidth)

@@ -1,0 +1,23 @@
+experiment_name: "baseline_1"
+
+experiment_file: "750332458"
+
+i_dataset: "static_gratings_params"
+
+# For the j_dataset (any value)
+num_bins: 100
+
+# For the j_dataset ("all" or any value)
+num_neurons: "all"
+
+# For the j_dataset
+neuron_selection: "variance"
+
+dimensionality_reduction: "pca"
+
+density_estimator: "nadaraya_watson"
+
+clustering: "dirichlet_process_gaussian_mixture"
+
+# Any value
+num_clusters: 10
