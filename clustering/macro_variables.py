@@ -8,9 +8,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 DENSITY_PATH = os.path.join(FILE_PATH, "../density_learning/")
 
+from clustering import load_object, get_micro_causes_effects, visualize_samples_from_clusters
+from data import StaticGratingsDataset
+
 import argparse
 import numpy as np
-from clustering import load_object, get_micro_causes_effects
 
 
 def load_cluster_info(num_clusters, clustering_method):
@@ -102,6 +104,17 @@ def main():
 
     np.save(eft_mac_save_path, eft_mac)
     np.save(cs_mac_save_path, cs_mac)
+
+    # Visualize samples per cluster
+    print("Getting dataset...")
+    sg_dataset = StaticGratingsDataset(750332458)
+    h_v_bars = sg_dataset.get_presentation_ids(orientation=[0, 90])
+    visp_units = sg_dataset.get_unit_ids("VISp")
+    X_sg, y_sg = sg_dataset.get_data(presentation_ids=h_v_bars, unit_ids=visp_units, stimulus_type="params")
+    i = X_sg
+    j = y_sg
+
+    visualize_samples_from_clusters(i, j, eft_clusters, cs_clusters)
 
 
 if __name__ == "__main__":

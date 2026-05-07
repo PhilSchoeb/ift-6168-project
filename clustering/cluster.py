@@ -9,8 +9,10 @@ FILE_PATH = os.path.dirname(__file__)
 DENSITY_PATH = os.path.join(FILE_PATH, "../density_learning/")
 
 from clustering import get_micro_causes_effects, load_object
+from data import generate_gratings
 
 import argparse
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
 
@@ -20,14 +22,14 @@ def cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, **kwargs):
     d_p_g_m_cs = BayesianGaussianMixture(**kwargs)
 
     # Cluster micro effects
-    d_p_g_m_eft.fit(eft_mic)
-    eft_clusters = d_p_g_m_eft.predict(eft_mic)
-    means_eft = d_p_g_m_eft.means_
+    d_p_g_m_cs.fit(eft_mic)
+    cs_clusters = d_p_g_m_cs.predict(eft_mic)
+    means_cs = d_p_g_m_cs.means_
 
     # Cluster micro causes
-    d_p_g_m_cs.fit(cs_mic)
-    cs_clusters = d_p_g_m_cs.predict(cs_mic)
-    means_cs = d_p_g_m_cs.means_
+    d_p_g_m_eft.fit(cs_mic)
+    eft_clusters = d_p_g_m_eft.predict(cs_mic)
+    means_eft = d_p_g_m_eft.means_
 
     return eft_clusters, cs_clusters, means_eft, means_cs
 
@@ -42,6 +44,122 @@ def cluster(eft_mic, cs_mic, cluster_method="dirichlet_process_gaussian_mixture"
 
 def convert_probs_to_logprobs(density):
     return np.log(density)
+
+
+def renumerate(clusters):
+    """
+    Helper for merging clusters
+    """
+    unique_cluster_values = np.unique(clusters)
+    # Create mapping
+    mapping = {}
+    for index in range(len(unique_cluster_values)):
+        mapping[unique_cluster_values[index]] = index
+
+    # Renumerate
+    for cluster_index in range(len(clusters)):
+        clusters[cluster_index] = mapping[clusters[cluster_index]]
+    return clusters
+
+
+def merge_clusters(clusters, merges: list[tuple[int, int]]):
+    """
+    After seeing the macro-variables, a user might want to merge specific clusters together
+
+    clusters: specifically eft_clusters or cs_clusters, for assigning samples to their respective cluster
+    (numpy.ndarray of shape [num_samples])
+
+    merges: list of cluster indices to merge together. For example [(0, 2), (1, 5)] means to merge cluster 0 and 2
+    together as well as clusters 1 and 5.
+
+    After merge, cluster numbers are renumbered to make sure their value goes from 0 to num_clusters - 1.
+    """
+    for i in range(len(clusters)):
+        for change in merges:
+            for value in change[1:]:
+
+                if clusters[i] == value:
+                    clusters[i] = change[0]
+
+    clusters = renumerate(clusters)
+
+    return clusters
+
+
+def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clusters):
+    # Cluster i
+    unique_cs_clusters = np.unique(cs_clusters)
+    clustered_i = [
+        original_i[cs_clusters == cluster]
+        for cluster in unique_cs_clusters
+    ]
+    # Cluster j
+    unique_eft_clusters = np.unique(eft_clusters)
+    clustered_j = [
+        original_j[eft_clusters == cluster]
+        for cluster in unique_eft_clusters
+    ]
+
+    n_samples_to_show = 3
+
+    # --- Visualization for i (cs_clusters) ---
+    n_clusters_i = len(unique_cs_clusters)
+    fig_i, axes_i = plt.subplots(n_clusters_i, n_samples_to_show,
+                                  figsize=(n_samples_to_show * 3, n_clusters_i * 3))
+    axes_i = np.atleast_2d(axes_i)
+
+    for cluster_idx, cluster_data in enumerate(clustered_i):
+        sample_indices = np.random.choice(len(cluster_data),
+                                           size=min(n_samples_to_show, len(cluster_data)),
+                                           replace=False)
+        for sample_idx, ax in enumerate(axes_i[cluster_idx]):
+            if sample_idx < len(sample_indices):
+                params = cluster_data[sample_indices[sample_idx]]  # shape [3]
+                # Reshape parameters since `generate_gratings` expects batched inputs
+                param_0 = np.array([params[0]]).reshape(1, -1)
+                param_1 = np.array([params[1]]).reshape(1, -1)
+                param_2 = np.array([params[2]]).reshape(1, -1)
+                img = generate_gratings(param_0, param_1, param_2)
+                img = img.reshape(img.shape[1], img.shape[2])
+                ax.imshow(img)
+                ax.axis("off")
+                if sample_idx == 0:
+                    ax.set_title(f"Cluster {unique_cs_clusters[cluster_idx]}", fontsize=9)
+            else:
+                ax.axis("off")
+
+    fig_i.suptitle("CS Cluster Samples (i)", fontsize=12)
+    fig_i.tight_layout(rect=[0, 0, 1, 0.96])
+    save_path_i = os.path.join(FILE_PATH, "out/i_cluster_samples.png")
+    os.makedirs(os.path.dirname(save_path_i), exist_ok=True)
+    fig_i.savefig(save_path_i)
+    plt.close(fig_i)
+
+    # --- Visualization for j (eft_clusters) ---
+    n_clusters_j = len(unique_eft_clusters)
+    fig_j, axes_j = plt.subplots(n_clusters_j, n_samples_to_show,
+                                  figsize=(n_samples_to_show * 3, n_clusters_j * 3))
+    axes_j = np.atleast_2d(axes_j)
+
+    for cluster_idx, cluster_data in enumerate(clustered_j):
+        sample_indices = np.random.choice(len(cluster_data),
+                                           size=min(n_samples_to_show, len(cluster_data)),
+                                           replace=False)
+        for sample_idx, ax in enumerate(axes_j[cluster_idx]):
+            if sample_idx < len(sample_indices):
+                img = cluster_data[sample_indices[sample_idx]]  # shape [n_neurons, n_bins]
+                ax.imshow(img, aspect="auto")
+                ax.axis("off")
+                if sample_idx == 0:
+                    ax.set_title(f"Cluster {unique_eft_clusters[cluster_idx]}", fontsize=9)
+            else:
+                ax.axis("off")
+
+    fig_j.suptitle("EFT Cluster Samples (j)", fontsize=12)
+    fig_j.tight_layout(rect=[0, 0, 1, 0.96])
+    save_path_j = os.path.join(FILE_PATH, "out/j_cluster_samples.png")
+    fig_j.savefig(save_path_j)
+    plt.close(fig_j)
 
 
 def main():

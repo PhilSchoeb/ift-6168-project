@@ -1,5 +1,5 @@
 """
-Load density object after running density estimation routine
+Load macro variables after calculating them for visualization
 """
 
 import sys
