@@ -1,4 +1,4 @@
-experiment_name: "baseline_1"
+experiment_name: "baseline_autoencoder_32"
 
 experiment_file: "750332458"
 
@@ -17,9 +17,9 @@ num_neurons: "all"
 # For the j_dataset
 neuron_selection: "variance"
 
-dimensionality_reduction: "pca"
+dimensionality_reduction: "autoencoder"
 
-reduced_dimension: 20
+reduced_dimension: 32
 
 standardize_post_reduction: True
 

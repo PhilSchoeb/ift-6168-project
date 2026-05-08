@@ -7,3 +7,5 @@ scipy
 torch
 scikit-learn
 pyyaml
+Cython
+rfcde

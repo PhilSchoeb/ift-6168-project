@@ -12,6 +12,12 @@ i_dataset:
   - "natural_images"
   - "static_and_natural_images"
 
+orientations:
+  - [0, 90]
+
+units:
+  - "VISp"
+
 # For the j_dataset (any value)
 num_bins:
   - 25
@@ -36,8 +42,33 @@ dimensionality_reduction:
   - "truncatedsvd"
   - "nmf"
 
+# Associated with dimensionality_reduction
+reduced_dimension:
+  - 10
+  - 20
+  - 32
+  - 64
+
+standardize_post_reduction:
+  - True
+  - False
+
 density_estimator:
   - "nadaraya_watson"
+
+# Any value
+bandwidth_i:
+  - "default"
+  - 1
+
+# Any value
+bandwidth_j:
+  - "default"
+  - 1
+
+density_to_log:
+  - True
+  - False
 
 clustering:
   - "dirichlet_process_gaussian_mixture"

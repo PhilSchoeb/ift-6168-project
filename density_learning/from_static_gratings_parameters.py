@@ -45,6 +45,12 @@ def j_dimensionality_reductions(j, n_components, return_explained_var=False):
 
 
 def get_TSVD_reduction(data, n_components, return_explained_var=False):
+    # Preprocess if ndim == 3
+    if data.ndim == 3:
+        num_samples = data.shape[0]
+        data_flat = data.reshape(num_samples, -1)
+        data = csr_matrix(data_flat)
+
     assert len(data.shape) == 2, f"data shape has to be (num_samples, num_features)"
     svd = TruncatedSVD(n_components=n_components)
     data_reduc = svd.fit_transform(data)
@@ -57,6 +63,11 @@ def get_TSVD_reduction(data, n_components, return_explained_var=False):
 
 
 def get_NMF_reduction(data, n_components):
+    # Preprocess if ndim == 3
+    if data.ndim == 3:
+        num_samples = data.shape[0]
+        data = data.reshape(num_samples, -1)
+
     assert len(data.shape) == 2, f"data shape has to be (num_samples, num_features)"
     nmf = NMF(n_components=n_components, max_iter=600)
     data_reduc = nmf.fit_transform(data)
@@ -64,6 +75,11 @@ def get_NMF_reduction(data, n_components):
 
 
 def get_PCA_reduction(data, n_components, return_explained_var=False):
+    # Preprocess if ndim == 3
+    if data.ndim == 3:
+        num_samples = data.shape[0]
+        data = data.reshape(num_samples, -1)
+
     assert len(data.shape) == 2, f"data shape has to be (num_samples, num_features)"
     pca = PCA(n_components=n_components)
     data_reduc = pca.fit_transform(data)
@@ -135,7 +151,7 @@ def get_nadaraya_watson_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
         bandwidth_j: float value for rbf bandwidth on j
 
     Returns:
-        P: (num_samples, num_samples) where P[a, b] = P(J=j_b | I=i_a)
+        P: (num_samples, num_samples) where P[a, b] = P(J=j_a | I=i_b)
     """
     num_samples = i.shape[0]
     assert j.shape[0] == num_samples
@@ -218,15 +234,45 @@ def get_sklearn_kernel_density(i, j, bandwidth_joint=1.0, bandwidth_i=1.0, algor
 
 
 def standardize_data(data, dims=None):
-    assert len(data.shape) == 2
-    # If no dims provided, all dims are standardized
-    if dims is None:
-        len_dims = data.shape[1]
-        dims = range(len_dims)
+    """
+    Standardization of 2D data (num_samples, num_features) and 3D data too (num_samples, H, W).
 
-    sc = StandardScaler()
-    data[:, dims] = sc.fit_transform(data[:, dims])
-    return data
+    In the former case, dims is 1D for features to standardize.
+    In the latter case, dims is 2D: dims[0] for H and dims[1] for W.
+    """
+    if len(data.shape) == 2:
+        # If no dims provided, all dims are standardized
+        if dims is None:
+            len_dims = data.shape[1]
+            dims = range(len_dims)
+
+        sc = StandardScaler()
+        data[:, dims] = sc.fit_transform(data[:, dims])
+        return data
+
+    if len(data.shape) == 3:
+        if dims is None:
+            neuron_dims = range(data.shape[1])
+            bin_dims = range(data.shape[2])
+        else:
+            neuron_dims, bin_dims = dims
+
+        # Extract subset, standardize, write back explicitly
+        subset = data[:, :, :][:, list(neuron_dims), :][:, :,
+                 list(bin_dims)]  # [num_samples, len(neuron_dims), len(bin_dims)]
+
+        mean = subset.mean(axis=0, keepdims=True)
+        std = subset.std(axis=0, keepdims=True)
+        std[std == 0] = 1
+
+        standardized = (subset - mean) / std  # [num_samples, len(neuron_dims), len(bin_dims)]
+
+        # Write back using nested indexing via a temp variable
+        tmp = data[:, list(neuron_dims), :]
+        tmp[:, :, list(bin_dims)] = standardized
+        data[:, list(neuron_dims), :] = tmp
+
+        return data
 
 
 def main():
@@ -236,7 +282,7 @@ def main():
     visp_units = sg_dataset.get_unit_ids("VISp")
     X_sg, y_sg = sg_dataset.get_data(presentation_ids=h_v_bars, unit_ids=visp_units, stimulus_type="params")
     i = X_sg
-    j = y_sg
+    j = np.transpose(y_sg, (0, 2, 1))
     print(f"i shape: {i.shape}")
     print(f"j shape: {j.shape}")
 

@@ -62,14 +62,14 @@ def renumerate(clusters):
     return clusters
 
 
-def merge_clusters(clusters, merges: list[tuple[int, int]]):
+def merge_clusters(clusters, merges: list[list[int]]):
     """
     After seeing the macro-variables, a user might want to merge specific clusters together
 
     clusters: specifically eft_clusters or cs_clusters, for assigning samples to their respective cluster
     (numpy.ndarray of shape [num_samples])
 
-    merges: list of cluster indices to merge together. For example [(0, 2), (1, 5)] means to merge cluster 0 and 2
+    merges: list of cluster indices to merge together. For example [[0, 2], [1, 5]] means to merge cluster 0 and 2
     together as well as clusters 1 and 5.
 
     After merge, cluster numbers are renumbered to make sure their value goes from 0 to num_clusters - 1.
@@ -86,7 +86,7 @@ def merge_clusters(clusters, merges: list[tuple[int, int]]):
     return clusters
 
 
-def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clusters):
+def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clusters, path_i=None, path_j=None):
     # Cluster i
     unique_cs_clusters = np.unique(cs_clusters)
     clustered_i = [
@@ -100,7 +100,7 @@ def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clu
         for cluster in unique_eft_clusters
     ]
 
-    n_samples_to_show = 3
+    n_samples_to_show = 5
 
     # --- Visualization for i (cs_clusters) ---
     n_clusters_i = len(unique_cs_clusters)
@@ -130,7 +130,12 @@ def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clu
 
     fig_i.suptitle("CS Cluster Samples (i)", fontsize=12)
     fig_i.tight_layout(rect=[0, 0, 1, 0.96])
-    save_path_i = os.path.join(FILE_PATH, "out/i_cluster_samples.png")
+
+    if path_i is None:
+        save_path_i = os.path.join(FILE_PATH, "out/i_cluster_samples.png")
+    else:
+        save_path_i = path_i
+
     os.makedirs(os.path.dirname(save_path_i), exist_ok=True)
     fig_i.savefig(save_path_i)
     plt.close(fig_i)
@@ -157,7 +162,12 @@ def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clu
 
     fig_j.suptitle("EFT Cluster Samples (j)", fontsize=12)
     fig_j.tight_layout(rect=[0, 0, 1, 0.96])
-    save_path_j = os.path.join(FILE_PATH, "out/j_cluster_samples.png")
+
+    if path_j is None:
+        save_path_j = os.path.join(FILE_PATH, "out/j_cluster_samples.png")
+    else:
+        save_path_j = path_j
+
     fig_j.savefig(save_path_j)
     plt.close(fig_j)
 

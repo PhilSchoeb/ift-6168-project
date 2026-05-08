@@ -3,7 +3,7 @@ Helper for the --help command on `main.py`.
 """
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 FILE_PATH = os.path.dirname(__file__)
 
 import yaml
@@ -41,17 +41,6 @@ Options:
     config_path = config_path = os.path.join(FILE_PATH, f"configs/all_hyperparameters.yaml")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
-
-    experiment_name = config["experiment_name"]
-    experiment_file = config["experiment_file"]
-    i_dataset = config["i_dataset"]
-    num_bins = config["num_bins"]
-    num_neurons = config["num_neurons"]
-    neuron_selection = config["neuron_selection"]
-    dim_reduction = config["dimensionality_reduction"]
-    density_estimator = config["density_estimator"]
-    clustering = config["clustering"]
-    num_clusters = config["num_clusters"]
 
     help_with_main_part_2 = f"""
 
@@ -137,6 +126,16 @@ dimensionality_reduction:
             Non-negative Matrix Factorization.
 
 
+reduced_dimension:
+    Number of dimensions the data is reduced to.
+    
+    Possible values:
+{format_possible_values(config["reduced_dimension"])}
+
+    Notes:
+        TODO
+        
+        
 density_estimator:
     Density estimation routine used for macro-variable estimation.
 
