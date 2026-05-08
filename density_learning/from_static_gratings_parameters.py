@@ -135,7 +135,7 @@ def get_nadaraya_watson_density(i, j, bandwidth_i=1.0, bandwidth_j=1.0):
         bandwidth_j: float value for rbf bandwidth on j
 
     Returns:
-        P: (num_samples, num_samples) where P[a, b] = P(J=j_b | I=i_a)
+        P: (num_samples, num_samples) where P[a, b] = P(J=j_a | I=i_b)
     """
     num_samples = i.shape[0]
     assert j.shape[0] == num_samples
