@@ -4,9 +4,9 @@ Fetch dataset.
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 FILE_PATH = os.path.dirname(__file__)
-SESSION_DATA_PATH = os.path.join(FILE_PATH, "../session_data/")
+SESSION_DATA_PATH = os.path.join(FILE_PATH, "../../session_data/")
 
 from data import StaticGratingsDataset
 from density_learning import get_NMF_reduction, get_PCA_reduction, get_TSVD_reduction
@@ -51,8 +51,18 @@ def apply_dimensionality_reduction(i, j, experiment_file, i_dataset, dim_reducti
                 # Only reduced dimension available in our data for now
                 if reduced_dimension in [32, 64]:
                     path_to_latent_data = os.path.join(SESSION_DATA_PATH, f"session_{experiment_file}/latent_static_gratings_{reduced_dimension}.npz")
-                    latent_j = np.load(path_to_latent_data)
-                    print(f"Size of latent_j: {latent_j.shape}")
+                    data_j = np.load(path_to_latent_data)
+                    latent_j = data_j["y"]
+
+                    # Verify X with original data i
+                    X = data_j["X"]
+                    assert np.allclose(X, i, rtol=1e-3)
+
+                    # Present information that is unused
+                    presentation_ids = data_j["presentation_ids"]
+                    unit_ids = data_j["unit_ids"]
+                    timestamps = data_j["timestamps"]
+
                     return i, latent_j, None, None
                 else:
                     raise NotImplementedError(f"TODO: reduced_dimension == {reduced_dimension} not available in session_data folder.")

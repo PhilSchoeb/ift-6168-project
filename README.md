@@ -24,11 +24,11 @@ Normally, anyone can access this drive to view the files. You have to download s
 
 To run the algorithm, we propose using the complete_pipeline main file:
 ```bash
-# With default config "baseline_1.json"
+# With default config "baseline_1.yaml"
 python complete_pipeline/main.py
 
-# With another config named "example.json"
-pyton complete_pipeline/main.py --config example.json
+# With another config named "example.yaml"
+pyton complete_pipeline/main.py --config example.yaml
 ```
 
 For more help around the pipeline and hyperparameter, go check `complete_pipeline/README.md`

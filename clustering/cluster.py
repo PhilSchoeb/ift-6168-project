@@ -100,7 +100,7 @@ def visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clu
         for cluster in unique_eft_clusters
     ]
 
-    n_samples_to_show = 3
+    n_samples_to_show = 5
 
     # --- Visualization for i (cs_clusters) ---
     n_clusters_i = len(unique_cs_clusters)

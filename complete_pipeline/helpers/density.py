@@ -4,7 +4,7 @@ Getting the density estimation
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 FILE_PATH = os.path.dirname(__file__)
 
 from density_learning import get_nadaraya_watson_density

@@ -3,7 +3,7 @@ Helper for the --help command on `main.py`.
 """
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 FILE_PATH = os.path.dirname(__file__)
 
 import yaml

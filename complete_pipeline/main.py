@@ -139,6 +139,12 @@ def main():
     print(f"Applying dimensionality reduction...")
     i, j, exp_var_i, exp_var_j = apply_dimensionality_reduction(i, j, experiment_file, i_dataset, dim_reduction, reduced_dimension)
 
+    # Indicate shape change
+    if i.shape != original_i.shape:
+        print(f"i shape: {original_i.shape} -> {i.shape}.")
+    if j.shape != original_j.shape:
+        print(f"j shape: {original_j.shape} -> {j.shape}.")
+
     if exp_var_i is not None:
         path_exp_var_i = os.path.join(out_dir, "i_reduc_explained_variance.txt")
         with open(path_exp_var_i, "w") as f:
