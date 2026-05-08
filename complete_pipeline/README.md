@@ -4,12 +4,12 @@ For this complete pipeline to work, you must have downloaded the required data a
 
 # How to run
 
-````
+```bash
 python complete_pipeline/main.py --config {CONFIG_NAME}
-````
+```
 The default value for `--config` is `baseline_1`.
 
 For any additional help or information on the hyperparameters used:
-````
+```bash
 python complete_pipeline/main.py --help
-````
+```
