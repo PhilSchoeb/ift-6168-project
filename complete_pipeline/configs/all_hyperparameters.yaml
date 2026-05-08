@@ -66,6 +66,10 @@ bandwidth_j:
   - "default"
   - 1
 
+density_to_log:
+  - True
+  - False
+
 clustering:
   - "dirichlet_process_gaussian_mixture"
 

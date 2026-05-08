@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def visualize_macros(eft_mac, cs_mac):
+def visualize_macros(eft_mac, cs_mac, path=None):
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
@@ -59,8 +59,11 @@ def visualize_macros(eft_mac, cs_mac):
 
     plt.tight_layout()
 
-    figure_name = "macro_variables_visu.png"
-    save_path = os.path.join(FILE_PATH, "out", figure_name)
+    if path is None:
+        figure_name = "macro_variables_visu.png"
+        save_path = os.path.join(FILE_PATH, "out", figure_name)
+    else:
+        save_path = path
 
     plt.savefig(save_path, bbox_inches="tight")
     plt.close()

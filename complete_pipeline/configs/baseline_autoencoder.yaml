@@ -1,4 +1,4 @@
-experiment_name: "baseline_1"
+experiment_name: "baseline_autoencoder_32"
 
 experiment_file: "750332458"
 
@@ -28,6 +28,8 @@ density_estimator: "nadaraya_watson"
 bandwidth_i: "default"
 
 bandwidth_j: "default"
+
+density_to_log: False
 
 clustering: "dirichlet_process_gaussian_mixture"
 

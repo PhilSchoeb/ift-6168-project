@@ -29,6 +29,8 @@ bandwidth_i: "default"
 
 bandwidth_j: "default"
 
+density_to_log: False
+
 clustering: "dirichlet_process_gaussian_mixture"
 
 # Any value

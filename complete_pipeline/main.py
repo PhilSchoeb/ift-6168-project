@@ -7,6 +7,8 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 
+from cluster import get_clustering_and_macro
+from clustering import visualize_macros, visualize_samples_from_clusters
 from complete_pipeline import generate_help_text
 from dataset import fetch_dataset, apply_dimensionality_reduction
 from density import get_density_estimation
@@ -61,6 +63,7 @@ def main():
     density_estimator = config["density_estimator"]
     bandwidth_i = config["bandwidth_i"]
     bandwidth_j = config["bandwidth_j"]
+    density_to_log = config["density_to_log"]
     clustering = config["clustering"]
     num_clusters = config["num_clusters"]
 
@@ -80,6 +83,7 @@ def main():
             density_estimator,
             bandwidth_i,
             bandwidth_j,
+            density_to_log,
             clustering,
             num_clusters,
         ]
@@ -111,6 +115,7 @@ def main():
         "density_estimator": density_estimator,
         "bandwidth_i": bandwidth_i,
         "bandwidth_j": bandwidth_j,
+        "density_to_log": density_to_log,
         "clustering": clustering,
         "num_clusters": num_clusters,
     }
@@ -122,8 +127,18 @@ def main():
     print(f"Fetching dataset...")
     i, j = fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num_neurons, neuron_selection)
 
+    # Save original dataset
+    original_i = np.copy(i)
+    original_j = np.copy(j)
+
+    original_i_path = os.path.join(out_dir, "original_i.npy")
+    original_j_path = os.path.join(out_dir, "original_j.npy")
+    np.save(original_i_path, original_i)
+    np.save(original_j_path, original_j)
+
     print(f"Applying dimensionality reduction...")
     i, j, exp_var_i, exp_var_j = apply_dimensionality_reduction(i, j, experiment_file, i_dataset, dim_reduction, reduced_dimension)
+
     if exp_var_i is not None:
         path_exp_var_i = os.path.join(out_dir, "i_reduc_explained_variance.txt")
         with open(path_exp_var_i, "w") as f:
@@ -145,12 +160,49 @@ def main():
         j = standardize_data(j)
 
     # Conditional density estimation
+    print(f"Computing conditional density estimation...")
     density = get_density_estimation(i, j, density_estimator, bandwidth_i, bandwidth_j)
+    # Save density
     density_path = os.path.join(out_dir, f"density_{density_estimator}.npy")
     np.save(density_path, density)
 
-    # CLustering
-    # TODO
+    # Clustering and macro variables
+    print(f"Computing clusters and macro-variables...")
+    eft_clusters, num_eft_clusters, cs_clusters, num_cs_clusters, eft_means, cs_means, eft_mac, cs_mac = \
+        get_clustering_and_macro(density, density_to_log, clustering, num_clusters)
+
+    # Save clustering assignment
+    np.save(os.path.join(out_dir, "eft_clusters.npy"), eft_clusters)
+    np.save(os.path.join(out_dir, "cs_clusters.npy"), cs_clusters)
+    np.save(os.path.join(out_dir, "eft_cluster_means.npy"), eft_means)
+    np.save(os.path.join(out_dir, "cs_cluster_means.npy"), cs_means)
+
+    num_clusters_file_path = os.path.join(out_dir, "number of clusters.txt")
+    with open(num_clusters_file_path, "w") as f:
+        f.write(f"Number of EFT clusters: {num_eft_clusters}\nNumber of CS clusters: {num_cs_clusters}")
+
+    # Save macro-variables
+    np.save(os.path.join(out_dir, "eft_mac.npy"), eft_mac)
+    np.save(os.path.join(out_dir, "cs_mac.npy"), cs_mac)
+
+    print(f"Generating visualizations...\n")
+    # Visualizations
+    # Visualize samples from each cluster
+    i_samples_path = os.path.join(out_dir, "i_cluster_samples.png")
+    j_samples_path = os.path.join(out_dir, "j_cluster_sample.png")
+    visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clusters, path_i=i_samples_path, path_j=j_samples_path)
+
+    # Visualize macro-variables
+    macro_path = os.path.join(out_dir, "macro_variables_visu.png")
+    visualize_macros(eft_mac, cs_mac, path=macro_path)
+
+    merging_path = os.path.join(FILE_PATH, "merging.py")
+
+    print(f"End of automation process. Look at macro variables at {macro_path} to manually verify which macro variables"
+          f" (clusters) should be merged together. Once that is decided, use the script for merging at {merging_path}"
+          f" and provide your run folder using: python complete_pipeline/merging.py --run_folder {{run_folder}}"
+          f" --merge {{cluster_number_to_merge_with}}_{{second_cluster_number_to_merge}} {{another_cluster_number_to_"
+          f"merge_with}}_{{another_second_cluster_number_to_merge}} ...\n")
 
 
 if __name__ == "__main__":
