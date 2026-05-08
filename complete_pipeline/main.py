@@ -7,11 +7,11 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 
-from cluster import get_clustering_and_macro
+from helpers.cluster import get_clustering_and_macro
 from clustering import visualize_macros, visualize_samples_from_clusters
-from complete_pipeline import generate_help_text
-from dataset import fetch_dataset, apply_dimensionality_reduction
-from density import get_density_estimation
+from helpers.helper import generate_help_text
+from helpers.dataset import fetch_dataset, apply_dimensionality_reduction
+from helpers.density import get_density_estimation
 from density_learning import standardize_data
 
 import argparse

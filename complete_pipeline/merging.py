@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 
-from cluster import get_macro_only
+from helpers.cluster import get_macro_only
 from clustering import merge_clusters, visualize_macros, visualize_samples_from_clusters
 
 import argparse

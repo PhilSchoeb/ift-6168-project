@@ -33,4 +33,4 @@ pyton complete_pipeline/main.py --config example.json
 
 For more help around the pipeline and hyperparameter, go check `complete_pipeline/README.md`
 
-You can also use individual python files but they have not been optimized for this usage.
+You can also use individual python files, but they have not been optimized for this usage.
