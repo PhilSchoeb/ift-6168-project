@@ -12,7 +12,7 @@ from clustering import get_micro_causes_effects, convert_probs_to_logprobs, clus
 import numpy as np
 
 
-def get_clustering_and_macro(density, density_to_log, clustering, num_clusters):
+def get_clustering_and_macro(density, density_to_log, clustering, num_clusters, simplify_clustering):
     eft_mic, cs_mic = get_micro_causes_effects(density)
 
     if density_to_log:
@@ -23,6 +23,7 @@ def get_clustering_and_macro(density, density_to_log, clustering, num_clusters):
         eft_mic,
         cs_mic,
         cluster_method=clustering,
+        simplify_clustering=simplify_clustering,
         n_components=num_clusters
     )
     assert eft_clusters.ndim == 1 and cs_clusters.ndim == 1

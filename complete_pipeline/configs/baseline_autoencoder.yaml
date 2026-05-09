@@ -33,5 +33,7 @@ density_to_log: False
 
 clustering: "dirichlet_process_gaussian_mixture"
 
+simplify_clustering: False
+
 # Any value
 num_clusters: 10
