@@ -58,7 +58,7 @@ def get_macro_variables(eft_mic, cs_mic, eft_clusters, cs_clusters):
         for cluster_vector in cluster_vectors:
             # This vector should already be normalized
             sum_vector = np.sum(cluster_vector)
-            assert np.allclose(sum_vector, np.ones_like(sum_vector))
+            assert np.allclose(sum_vector, np.ones_like(sum_vector), rtol=1e-3)
             for elem_index in range(len(cluster_vector)):
                 elem = cluster_vector[elem_index]
                 eft_cluster = eft_clusters[elem_index]

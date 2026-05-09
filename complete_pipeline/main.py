@@ -7,10 +7,17 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 FILE_PATH = os.path.dirname(__file__)
 
-from complete_pipeline import generate_help_text
+from helpers.cluster import get_clustering_and_macro
+from clustering import visualize_macros, visualize_samples_from_clusters
+from helpers.helper import generate_help_text
+from helpers.dataset import fetch_dataset, apply_dimensionality_reduction
+from helpers.density import get_density_estimation
+from density_learning import standardize_data
 
 import argparse
 from datetime import datetime
+import json
+import numpy as np
 import yaml
 
 
@@ -45,20 +52,163 @@ def main():
     experiment_name = config["experiment_name"]
     experiment_file = config["experiment_file"]
     i_dataset = config["i_dataset"]
+    orientations = config["orientations"]
+    units = config["units"]
     num_bins = config["num_bins"]
     num_neurons = config["num_neurons"]
     neuron_selection = config["neuron_selection"]
     dim_reduction = config["dimensionality_reduction"]
+    reduced_dimension = config["reduced_dimension"]
+    standardize_post_reduction = config["standardize_post_reduction"]
     density_estimator = config["density_estimator"]
+    bandwidth_i = config["bandwidth_i"]
+    bandwidth_j = config["bandwidth_j"]
+    density_to_log = config["density_to_log"]
     clustering = config["clustering"]
     num_clusters = config["num_clusters"]
 
+    assert not any(
+        isinstance(v, list)
+        for v in [
+            experiment_name,
+            experiment_file,
+            i_dataset,
+            units,
+            num_bins,
+            num_neurons,
+            neuron_selection,
+            dim_reduction,
+            reduced_dimension,
+            standardize_post_reduction,
+            density_estimator,
+            bandwidth_i,
+            bandwidth_j,
+            density_to_log,
+            clustering,
+            num_clusters,
+        ]
+    ), "Config file used must have only one value for each hyperparameter."
+
+    # Different treatment for "orientations" which is a list
+    assert not isinstance(orientations[0], list), "Config file used must have only one value for each hyperparameter."
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_dir = os.path.join(FILE_PATH, f"out/run_{timestamp}")
+    out_dir = os.path.join(FILE_PATH, f"out/run_{experiment_name}_{timestamp}")
     os.makedirs(out_dir, exist_ok=True)
 
     print(f"Initiating experiment {experiment_name}...")
     print(f"Saving artefacts at: {out_dir}/...")
+
+    # Save used hyperparameters
+    used_config = {
+        "experiment_name": experiment_name,
+        "experiment_file": experiment_file,
+        "i_dataset": i_dataset,
+        "orientations": orientations,
+        "units": units,
+        "num_bins": num_bins,
+        "num_neurons": num_neurons,
+        "neuron_selection": neuron_selection,
+        "dimensionality_reduction": dim_reduction,
+        "reduced_dimension": reduced_dimension,
+        "standardize_post_reduction": standardize_post_reduction,
+        "density_estimator": density_estimator,
+        "bandwidth_i": bandwidth_i,
+        "bandwidth_j": bandwidth_j,
+        "density_to_log": density_to_log,
+        "clustering": clustering,
+        "num_clusters": num_clusters,
+    }
+
+    with open(os.path.join(out_dir, "used_config.json"), "w") as f:
+        json.dump(used_config, f, indent=4)
+
+    # Fetch data
+    print(f"Fetching dataset...")
+    i, j = fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num_neurons, neuron_selection)
+
+    # Save original dataset
+    original_i = np.copy(i)
+    original_j = np.copy(j)
+
+    original_i_path = os.path.join(out_dir, "original_i.npy")
+    original_j_path = os.path.join(out_dir, "original_j.npy")
+    np.save(original_i_path, original_i)
+    np.save(original_j_path, original_j)
+
+    print(f"Applying dimensionality reduction...")
+    i, j, exp_var_i, exp_var_j = apply_dimensionality_reduction(i, j, experiment_file, i_dataset, dim_reduction, reduced_dimension)
+
+    # Indicate shape change
+    if i.shape != original_i.shape:
+        print(f"i shape: {original_i.shape} -> {i.shape}.")
+    if j.shape != original_j.shape:
+        print(f"j shape: {original_j.shape} -> {j.shape}.")
+
+    if exp_var_i is not None:
+        path_exp_var_i = os.path.join(out_dir, "i_reduc_explained_variance.txt")
+        with open(path_exp_var_i, "w") as f:
+            f.write(f"Using {dim_reduction}: " + str(exp_var_i))
+        print(f"i reduction explained variance: {exp_var_i} with {dim_reduction}")
+    if exp_var_j is not None:
+        path_exp_var_j = os.path.join(out_dir, "j_reduc_explained_variance.txt")
+        with open(path_exp_var_j, "w") as f:
+            f.write(f"Using {dim_reduction}: " + str(exp_var_j))
+        print(f"j reduction explained variance: {exp_var_j} with {dim_reduction}")
+
+    # After dimensionality reduction, we expect 2D data
+    assert i.ndim == 2, f"Expected 2 dimensions for i but got: {i.ndim}"
+    assert i.ndim == 2, f"Expected 2 dimensions for j but got: {j.ndim}"
+
+    if standardize_post_reduction:
+        print(f"Applying standardization...")
+        i = standardize_data(i)
+        j = standardize_data(j)
+
+    # Conditional density estimation
+    print(f"Computing conditional density estimation...")
+    density = get_density_estimation(i, j, density_estimator, bandwidth_i, bandwidth_j)
+    # Save density
+    density_path = os.path.join(out_dir, f"density_{density_estimator}.npy")
+    np.save(density_path, density)
+
+    # Clustering and macro variables
+    print(f"Computing clusters and macro-variables...")
+    eft_clusters, num_eft_clusters, cs_clusters, num_cs_clusters, eft_means, cs_means, eft_mac, cs_mac = \
+        get_clustering_and_macro(density, density_to_log, clustering, num_clusters)
+
+    # Save clustering assignment
+    np.save(os.path.join(out_dir, "eft_clusters.npy"), eft_clusters)
+    np.save(os.path.join(out_dir, "cs_clusters.npy"), cs_clusters)
+    np.save(os.path.join(out_dir, "eft_cluster_means.npy"), eft_means)
+    np.save(os.path.join(out_dir, "cs_cluster_means.npy"), cs_means)
+
+    num_clusters_file_path = os.path.join(out_dir, "number of clusters.txt")
+    with open(num_clusters_file_path, "w") as f:
+        f.write(f"Number of EFT clusters: {num_eft_clusters}\nNumber of CS clusters: {num_cs_clusters}")
+
+    # Save macro-variables
+    np.save(os.path.join(out_dir, "eft_mac.npy"), eft_mac)
+    np.save(os.path.join(out_dir, "cs_mac.npy"), cs_mac)
+
+    print(f"Generating visualizations...\n")
+    # Visualizations
+    # Visualize samples from each cluster
+    i_samples_path = os.path.join(out_dir, "i_cluster_samples.png")
+    j_samples_path = os.path.join(out_dir, "j_cluster_sample.png")
+    visualize_samples_from_clusters(original_i, original_j, eft_clusters, cs_clusters, path_i=i_samples_path, path_j=j_samples_path)
+
+    # Visualize macro-variables
+    macro_path = os.path.join(out_dir, "macro_variables_visu.png")
+    visualize_macros(eft_mac, cs_mac, path=macro_path)
+
+    merging_path = os.path.join(FILE_PATH, "merging.py")
+
+    print(f"End of automation process. Look at macro variables at {macro_path} to manually verify which macro variables"
+          f" (clusters) should be merged together. Once that is decided, use the script for merging at {merging_path}"
+          f" and provide your run folder using: python complete_pipeline/merging.py --run_folder {{run_folder}}"
+          f" --merge {{cluster_number_to_merge_with}}_{{second_cluster_number_to_merge}} {{another_cluster_number_to_"
+          f"merge_with}}_{{another_second_cluster_number_to_merge}} ...\n")
 
 
 if __name__ == "__main__":
