@@ -27,7 +27,7 @@ def load_object(name="density.pkl"):
         raise e
 
 
-def visualize_density(density, name="density.pkl"):
+def visualize_density(density, name="density.pkl", path=None):
     density_name = name[:-4]
     assert len(density.shape) == 2
     assert density.shape[0] == density.shape[1]
@@ -70,8 +70,11 @@ def visualize_density(density, name="density.pkl"):
         zero_patch = mpatches.Patch(color="red", label="Exact 0 values")
         ax.legend(handles=[zero_patch], loc="upper right")
 
-    figure_name = f"{density_name}_visu"
-    save_path = os.path.join(FILE_PATH, "out", figure_name)
+    if path is None:
+        figure_name = f"{density_name}_visu"
+        save_path = os.path.join(FILE_PATH, "out", figure_name)
+    else:
+        save_path = path
     plt.savefig(save_path)
 
 

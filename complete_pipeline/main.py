@@ -11,8 +11,8 @@ from helpers.cluster import get_clustering_and_macro
 from clustering import visualize_macros, visualize_samples_from_clusters
 from helpers.helper import generate_help_text
 from helpers.dataset import fetch_dataset, apply_dimensionality_reduction
-from helpers.density import get_density_estimation
-from density_learning import standardize_data
+from helpers.density import get_density_estimation, group_density_by_clusters
+from density_learning import standardize_data, visualize_density
 
 import argparse
 from datetime import datetime
@@ -175,11 +175,19 @@ def main():
     # Save density
     density_path = os.path.join(out_dir, f"density_{density_estimator}.npy")
     np.save(density_path, density)
+    # Save density visualization
+    density_visu_path = os.path.join(out_dir, "density_matrix.png")
+    visualize_density(density, path=density_visu_path)
 
     # Clustering and macro variables
     print(f"Computing clusters and macro-variables...")
     eft_clusters, num_eft_clusters, cs_clusters, num_cs_clusters, eft_means, cs_means, eft_mac, cs_mac = \
         get_clustering_and_macro(density, density_to_log, clustering, num_clusters, simplify_clustering)
+    # Rearrange density matrix grouped by clusters
+    clustered_density = group_density_by_clusters(np.copy(density), eft_clusters, cs_clusters)
+    # Visualize clustered density
+    clustered_density_path = os.path.join(out_dir, "clustered_density_matrix.png")
+    visualize_density(clustered_density, path=clustered_density_path)
 
     # Save clustering assignment
     np.save(os.path.join(out_dir, "eft_clusters.npy"), eft_clusters)
