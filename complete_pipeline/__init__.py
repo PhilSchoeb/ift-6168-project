@@ -1,2 +1,2 @@
-from .helper import generate_help_text
-from .dataset import fetch_dataset
+from .helpers.helper import generate_help_text
+from .helpers.dataset import fetch_dataset

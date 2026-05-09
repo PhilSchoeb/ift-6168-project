@@ -19,7 +19,6 @@ orientations:
 
 units:
   - "VISp"
-  - "most_expressive"
   - null
 
 # For the j_dataset (any value)
