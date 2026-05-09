@@ -79,9 +79,9 @@ def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num
                     selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
                     selected_units = sg_dataset.get_unit_ids(units)
                     if neuron_selection == "variance":
-                        most_expressive = get_most_expressive_units(sg_dataset,num_neurons,selected_orientations,selected_units)
+                        most_expressive = get_most_expressive_units(sg_dataset, num_neurons, selected_orientations, selected_units)
                     elif neuron_selection == "class_variance":
-                        most_expressive = get_most_class_expressive_units(sg_dataset,num_neurons,selected_orientations,selected_units,orientations)
+                        most_expressive = get_most_class_expressive_units(sg_dataset, num_neurons, selected_orientations, selected_units, orientations)
                     else:
                         raise ValueError("neuron_selection must be in ['variance', 'class_variance']")
                     X_sg, y_sg = sg_dataset.get_data(presentation_ids=selected_orientations, unit_ids=most_expressive, stimulus_type="params")
