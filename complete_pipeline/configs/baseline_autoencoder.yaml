@@ -6,16 +6,16 @@ i_dataset: "static_gratings_params"
 
 orientations: [0, 90]
 
-units: "VISp"
+units: null
 
 # For the j_dataset (any value)
 num_bins: 100
 
 # For the j_dataset ("all" or any value)
-num_neurons: "all"
+num_neurons: 100
 
 # For the j_dataset
-neuron_selection: "variance"
+neuron_selection: "class_variance"
 
 dimensionality_reduction: "autoencoder"
 
