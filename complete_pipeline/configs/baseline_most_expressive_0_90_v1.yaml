@@ -1,4 +1,4 @@
-experiment_name: "baseline_1"
+experiment_name: "baseline_most_expressive_0_90_v1"
 
 experiment_file: "750332458"
 
@@ -6,7 +6,7 @@ i_dataset: "static_gratings_params"
 
 orientations: [0, 90]
 
-units: "VISp"
+units: "most_expressive"
 
 # For the j_dataset (any value)
 num_bins: 100

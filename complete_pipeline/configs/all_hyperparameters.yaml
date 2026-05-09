@@ -17,6 +17,7 @@ orientations:
 
 units:
   - "VISp"
+  - "most_expressive"
 
 # For the j_dataset (any value)
 num_bins:
@@ -72,6 +73,10 @@ density_to_log:
 
 clustering:
   - "dirichlet_process_gaussian_mixture"
+
+simplify_clustering:
+  - True
+  - False
 
 # Any value
 num_clusters:

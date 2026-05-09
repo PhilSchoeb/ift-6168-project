@@ -1,10 +1,10 @@
-experiment_name: "baseline_1"
+experiment_name: "baseline_all_v1"
 
 experiment_file: "750332458"
 
 i_dataset: "static_gratings_params"
 
-orientations: [0, 90]
+orientations: "all"
 
 units: "VISp"
 
@@ -19,7 +19,7 @@ neuron_selection: "variance"
 
 dimensionality_reduction: "pca"
 
-reduced_dimension: 20
+reduced_dimension: 10
 
 standardize_post_reduction: True
 
@@ -33,7 +33,7 @@ density_to_log: False
 
 clustering: "dirichlet_process_gaussian_mixture"
 
-simplify_clustering: False
+simplify_clustering: True
 
 # Any value
 num_clusters: 10

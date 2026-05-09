@@ -12,31 +12,93 @@ from clustering import get_micro_causes_effects, load_object
 from data import generate_gratings
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
 
 
-def cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, **kwargs):
-    d_p_g_m_eft = BayesianGaussianMixture(**kwargs)
-    d_p_g_m_cs = BayesianGaussianMixture(**kwargs)
+def cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, simplify_clustering=False, **kwargs):
+    if simplify_clustering:
+        max_fit_samples = 3000
+        covariance_type = "diag"
+        max_iter = 50
+    else:
+        max_fit_samples = None
+        covariance_type = "full"
+        max_iter = 100
+
+    def _subsample(data: np.ndarray) -> np.ndarray:
+        if max_fit_samples is None or len(data) <= max_fit_samples:
+            return data
+        idx = np.random.choice(len(data), size=max_fit_samples, replace=False)
+        return data[idx]
+
+    d_p_g_m_eft = BayesianGaussianMixture(covariance_type=covariance_type, max_iter=max_iter, **kwargs)
+    d_p_g_m_cs = BayesianGaussianMixture(covariance_type=covariance_type, max_iter=max_iter, **kwargs)
 
     # Cluster micro effects
-    d_p_g_m_cs.fit(eft_mic)
+    eft_mic_train = _subsample(eft_mic)
+    d_p_g_m_cs.fit(eft_mic_train)
     cs_clusters = d_p_g_m_cs.predict(eft_mic)
     means_cs = d_p_g_m_cs.means_
 
     # Cluster micro causes
-    d_p_g_m_eft.fit(cs_mic)
+    cs_mic_train = _subsample(cs_mic)
+    d_p_g_m_eft.fit(cs_mic_train)
     eft_clusters = d_p_g_m_eft.predict(cs_mic)
     means_eft = d_p_g_m_eft.means_
 
     return eft_clusters, cs_clusters, means_eft, means_cs
 
 
-def cluster(eft_mic, cs_mic, cluster_method="dirichlet_process_gaussian_mixture", **kwargs):
+'''def cluster_dirichlet_process_gaussian_mixture(
+    eft_mic,
+    cs_mic,
+    max_fit_samples: int = 2000,
+    **kwargs
+):
+    """
+    Optimized DPGMM clustering with:
+    - Subsampled fitting (fits on a representative sample, predicts on all points)
+    - Parallel fitting of both models using threads
+    - Tighter defaults for large datasets
+
+    Args:
+        eft_mic:          Input array for the 'eft' model.
+        cs_mic:           Input array for the 'cs' model.
+        max_fit_samples:  Max points used for .fit(); set None to disable subsampling.
+    """
+
+    def _subsample(data: np.ndarray) -> np.ndarray:
+        if max_fit_samples is None or len(data) <= max_fit_samples:
+            return data
+        idx = np.random.choice(len(data), size=max_fit_samples, replace=False)
+        return data[idx]
+
+    def _fit_and_predict(data: np.ndarray):
+        # BGM is not thread-safe during fit, so each call gets its own instance
+        model = BayesianGaussianMixture(**kwargs)
+        sample = _subsample(data)
+        model.fit(sample)
+        clusters = model.predict(data)  # full data
+        return clusters, model.means_
+
+    # Fit both models in parallel (I/O-friendly with threading since sklearn
+    # releases the GIL during the core BLAS/LAPACK calls in .fit())
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_cs  = executor.submit(_fit_and_predict, eft_mic)
+        future_eft = executor.submit(_fit_and_predict, cs_mic)
+
+        cs_clusters,  means_cs  = future_cs.result()
+        eft_clusters, means_eft = future_eft.result()
+
+    return eft_clusters, cs_clusters, means_eft, means_cs'''
+
+
+def cluster(eft_mic, cs_mic, cluster_method="dirichlet_process_gaussian_mixture", simplify_clustering=False, **kwargs):
     if cluster_method == "dirichlet_process_gaussian_mixture":
-        eft_clusters, cs_clusters, means_eft, means_cs = cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, **kwargs)
+        eft_clusters, cs_clusters, means_eft, means_cs = cluster_dirichlet_process_gaussian_mixture(eft_mic, cs_mic, simplify_clustering, **kwargs)
         return eft_clusters, cs_clusters, means_eft, means_cs
     else:
         raise ValueError(f"Unsupported cluster method: {cluster_method}")

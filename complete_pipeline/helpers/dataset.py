@@ -14,17 +14,31 @@ from density_learning import get_NMF_reduction, get_PCA_reduction, get_TSVD_redu
 import numpy as np
 
 
-def fetch_dataset(experiment_name, i_dataset, orientations, units, num_bins, num_neurons, neuron_selection):
+def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num_neurons, neuron_selection):
     if i_dataset == "static_gratings_params":
-        if experiment_name == "all":
+        if experiment_file == "all":
             raise NotImplementedError("TODO: experiment_name == \"all\" not implemented yet.")
         else:
             if num_bins == 100:
                 if num_neurons == "all":
-                    experiment_name_int = int(experiment_name)
+                    experiment_name_int = int(experiment_file)
                     sg_dataset = StaticGratingsDataset(experiment_name_int)
                     selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
-                    selected_units = sg_dataset.get_unit_ids(units)
+                    if units == "most_expressive":
+                        # Load most expressive units
+                        if orientations == [0, 90]:
+                            orientations_str = "0_90"
+                        elif orientations == "all" or orientations == [0, 30, 60, 90, 120, 150]:
+                            orientations_str = "all"
+                        else:
+                            raise NotImplementedError(f"TODO: orientations == {orientations} not implemented yet.")
+
+                        most_expressive_units_path = os.path.join(SESSION_DATA_PATH, f"session_{experiment_file}/most_expressive_static_gratings_{orientations_str}.npy")
+                        selected_units = np.load(most_expressive_units_path)
+                    elif units == "VISp":
+                        selected_units = sg_dataset.get_unit_ids(units)
+                    else:
+                        raise NotImplementedError(f"TODO: units == {units} not implemented yet.")
                     X_sg, y_sg = sg_dataset.get_data(presentation_ids=selected_orientations, unit_ids=selected_units, stimulus_type="params")
                     i = X_sg
                     # Transpose to have shape (num_samples, num_neurons, num_bins)

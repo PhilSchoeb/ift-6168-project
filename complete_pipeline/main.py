@@ -65,6 +65,7 @@ def main():
     bandwidth_j = config["bandwidth_j"]
     density_to_log = config["density_to_log"]
     clustering = config["clustering"]
+    simplify_clustering = config["simplify_clustering"]
     num_clusters = config["num_clusters"]
 
     assert not any(
@@ -85,6 +86,7 @@ def main():
             bandwidth_j,
             density_to_log,
             clustering,
+            simplify_clustering,
             num_clusters,
         ]
     ), "Config file used must have only one value for each hyperparameter."
@@ -117,6 +119,7 @@ def main():
         "bandwidth_j": bandwidth_j,
         "density_to_log": density_to_log,
         "clustering": clustering,
+        "simplify_clustering": simplify_clustering,
         "num_clusters": num_clusters,
     }
 
@@ -126,6 +129,7 @@ def main():
     # Fetch data
     print(f"Fetching dataset...")
     i, j = fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num_neurons, neuron_selection)
+    print(f"Dataset shape: i.shape: {i.shape}; j.shape: {j.shape}")
 
     # Save original dataset
     original_i = np.copy(i)
@@ -175,7 +179,7 @@ def main():
     # Clustering and macro variables
     print(f"Computing clusters and macro-variables...")
     eft_clusters, num_eft_clusters, cs_clusters, num_cs_clusters, eft_means, cs_means, eft_mac, cs_mac = \
-        get_clustering_and_macro(density, density_to_log, clustering, num_clusters)
+        get_clustering_and_macro(density, density_to_log, clustering, num_clusters, simplify_clustering)
 
     # Save clustering assignment
     np.save(os.path.join(out_dir, "eft_clusters.npy"), eft_clusters)
@@ -203,12 +207,16 @@ def main():
     visualize_macros(eft_mac, cs_mac, path=macro_path)
 
     merging_path = os.path.join(FILE_PATH, "merging.py")
+    truncated_out_dir = out_dir.split("ift-6168-project/")
+    truncated_out_dir = truncated_out_dir[1]
 
     print(f"End of automation process. Look at macro variables at {macro_path} to manually verify which macro variables"
           f" (clusters) should be merged together. Once that is decided, use the script for merging at {merging_path}"
           f" and provide your run folder using: python complete_pipeline/merging.py --run_folder {{run_folder}}"
           f" --merge {{cluster_number_to_merge_with}}_{{second_cluster_number_to_merge}} {{another_cluster_number_to_"
-          f"merge_with}}_{{another_second_cluster_number_to_merge}} ...\n")
+          f"merge_with}}_{{another_second_cluster_number_to_merge}}\n\nHere is a command line you can copy to use:\n"
+          f"python complete_pipeline/merging.py --run_folder {truncated_out_dir} --cluster_type {{eft or cs}} --merge "
+          f"{{merge_group}}")
 
 
 if __name__ == "__main__":
