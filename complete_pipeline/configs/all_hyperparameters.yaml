@@ -14,9 +14,12 @@ i_dataset:
 
 orientations:
   - [0, 90]
+  - [0, 30, 60, 90, 120, 150]
+  - null
 
 units:
   - "VISp"
+  - null
 
 # For the j_dataset (any value)
 num_bins:
@@ -35,6 +38,7 @@ num_neurons:
 # For the j_dataset
 neuron_selection:
   - "variance"
+  - "class_variance"
 
 dimensionality_reduction:
   - "autoencoder"
