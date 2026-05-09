@@ -1,4 +1,4 @@
-experiment_name: "baseline_1"
+experiment_name: "baseline_1_v1"
 
 experiment_file: "750332458"
 
@@ -12,10 +12,10 @@ units: null
 num_bins: 100
 
 # For the j_dataset ("all" or any value)
-num_neurons: 100
+num_neurons: "all"
 
 # For the j_dataset
-neuron_selection: "class_variance"
+neuron_selection: "variance"
 
 dimensionality_reduction: "pca"
 
