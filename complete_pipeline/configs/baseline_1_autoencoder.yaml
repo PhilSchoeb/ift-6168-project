@@ -1,25 +1,25 @@
-experiment_name: "baseline_most_expressive_all_v1"
+experiment_name: "baseline_1_autoencoder_32"
 
 experiment_file: "750332458"
 
 i_dataset: "static_gratings_params"
 
-orientations: "all"
+orientations: [0, 90]
 
-units: "most_expressive"
+units: null
 
 # For the j_dataset (any value)
 num_bins: 100
 
 # For the j_dataset ("all" or any value)
-num_neurons: "all"
+num_neurons: 100
 
 # For the j_dataset
-neuron_selection: "variance"
+neuron_selection: "class_variance"
 
-dimensionality_reduction: "pca"
+dimensionality_reduction: "autoencoder"
 
-reduced_dimension: 20
+reduced_dimension: 32
 
 standardize_post_reduction: True
 
@@ -33,7 +33,7 @@ density_to_log: False
 
 clustering: "dirichlet_process_gaussian_mixture"
 
-simplify_clustering: True
+simplify_clustering: False
 
 # Any value
 num_clusters: 10
