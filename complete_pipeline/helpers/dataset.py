@@ -52,21 +52,7 @@ def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num
                     experiment_name_int = int(experiment_file)
                     sg_dataset = StaticGratingsDataset(experiment_name_int)
                     selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
-                    if units == "most_expressive":
-                        # Load most expressive units
-                        if orientations == [0, 90]:
-                            orientations_str = "0_90"
-                        elif orientations == "all" or orientations == [0, 30, 60, 90, 120, 150]:
-                            orientations_str = "all"
-                        else:
-                            raise NotImplementedError(f"TODO: orientations == {orientations} not implemented yet.")
-
-                        most_expressive_units_path = os.path.join(SESSION_DATA_PATH, f"session_{experiment_file}/most_expressive_static_gratings_{orientations_str}.npy")
-                        selected_units = np.load(most_expressive_units_path)
-                    elif units == "VISp":
-                        selected_units = sg_dataset.get_unit_ids(units)
-                    else:
-                        raise NotImplementedError(f"TODO: units == {units} not implemented yet.")
+                    selected_units = sg_dataset.get_unit_ids(units)
                     X_sg, y_sg = sg_dataset.get_data(presentation_ids=selected_orientations, unit_ids=selected_units, stimulus_type="params")
                     i = X_sg
                     # Transpose to have shape (num_samples, num_neurons, num_bins)
