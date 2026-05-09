@@ -4,7 +4,7 @@ experiment_file: "750332458"
 
 i_dataset: "static_gratings_params"
 
-orientations: "all"
+orientations: null
 
 units: null
 
