@@ -16,29 +16,29 @@ import pandas as pd
 
 
 def get_most_expressive_units(dataset: StaticGratingsDataset, top_n: int, presentation_ids: list, unit_ids: list) -> list[int]:
-    _, y_temp = dataset.get_data(presentation_ids,unit_ids,stimulus_type="params")
+    _, y_temp = dataset.get_data(presentation_ids, unit_ids, stimulus_type="params")
     mean_var = y_temp.var(axis=0).mean(axis=0)   # variance across presentations, then mean across time
-    df = pd.DataFrame(mean_var,index=unit_ids,columns=["mean_variance"]).sort_values("mean_variance",ascending=False)
+    df = pd.DataFrame(mean_var, index=unit_ids, columns=["mean_variance"]).sort_values("mean_variance", ascending=False)
     return df.index[:top_n].to_list()
 
 
 def get_most_class_expressive_units(dataset: StaticGratingsDataset, top_n: int, presentation_ids: list, unit_ids: list, classes: list = None) -> list[int]:
-    _, y_temp = dataset.get_data(presentation_ids,unit_ids,stimulus_type="params")
+    _, y_temp = dataset.get_data(presentation_ids, unit_ids, stimulus_type="params")
     stimulus_table = dataset.stimulus_table.loc[presentation_ids].copy()
-    if isinstance(classes,list):
+    if isinstance(classes, list):
         num_classes = len(classes)
-        stimulus_table["class"] = np.select([stimulus_table.orientation==x for x in classes[:-1]],range(num_classes-1),num_classes-1)
+        stimulus_table["class"] = np.select([stimulus_table.orientation == x for x in classes[:-1]], range(num_classes-1), num_classes-1)
     else:
-        stimulus_table["class"] = stimulus_table.groupby(["orientation","spatial_frequency","phase"]).ngroup()
+        stimulus_table["class"] = stimulus_table.groupby(["orientation", "spatial_frequency", "phase"]).ngroup()
         num_classes = stimulus_table["class"].max()+1
     stimulus_table.reset_index(inplace=True)
-    results = np.empty((num_classes,y_temp.shape[1],y_temp.shape[2]))
+    results = np.empty((num_classes, y_temp.shape[1], y_temp.shape[2]))
     for c in range(num_classes):
         idx = stimulus_table[stimulus_table["class"]==c].index
-        array = y_temp[idx,:,:].sum(axis=0,keepdims=True)
-        results[c,:,:] = array/len(idx)   # mean activation for every class
+        array = y_temp[idx, :, :].sum(axis=0, keepdims=True)
+        results[c, :, :] = array/len(idx)   # mean activation for every class
     mean_class_var = results.var(axis=0).mean(axis=0)   # variance across classes, then mean across time
-    df = pd.DataFrame(mean_class_var,index=unit_ids,columns=["mean_variance"]).sort_values("mean_variance",ascending=False)
+    df = pd.DataFrame(mean_class_var, index=unit_ids, columns=["mean_variance"]).sort_values("mean_variance", ascending=False)
     return df.index[:top_n].to_list()
 
 
@@ -74,13 +74,13 @@ def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num
                     return i, j
                 else:
                     # Use neuron_selection
-                    experiment_name_int = int(experiment_name)
+                    experiment_name_int = int(experiment_file)
                     sg_dataset = StaticGratingsDataset(experiment_name_int)
                     selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
                     selected_units = sg_dataset.get_unit_ids(units)
-                    if neuron_selection=="variance":
+                    if neuron_selection == "variance":
                         most_expressive = get_most_expressive_units(sg_dataset,num_neurons,selected_orientations,selected_units)
-                    elif neuron_selection=="class_variance":
+                    elif neuron_selection == "class_variance":
                         most_expressive = get_most_class_expressive_units(sg_dataset,num_neurons,selected_orientations,selected_units,orientations)
                     else:
                         raise ValueError("neuron_selection must be in ['variance', 'class_variance']")
@@ -128,7 +128,7 @@ def apply_dimensionality_reduction(i, j, experiment_file, i_dataset, dim_reducti
             return i, reduced_j, None, explained_var
 
         elif dim_reduction == "truncatedsvd":
-            reduced_j, explained_var = get_TSVD_reduction(j ,reduced_dimension, True)
+            reduced_j, explained_var = get_TSVD_reduction(j, reduced_dimension, True)
             return i, reduced_j, None, explained_var
 
         elif dim_reduction == "nmf":
