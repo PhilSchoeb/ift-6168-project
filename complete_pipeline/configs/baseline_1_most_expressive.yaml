@@ -19,7 +19,7 @@ neuron_selection: "class_variance"
 
 dimensionality_reduction: "pca"
 
-reduced_dimension: 20
+reduced_dimension: 32
 
 standardize_post_reduction: True
 
