@@ -1,4 +1,4 @@
-experiment_name: "baseline_all_most_expressive_v2"
+experiment_name: "baseline_all_most_expressive_v1"
 
 experiment_file: "750332458"
 
@@ -19,7 +19,7 @@ neuron_selection: "class_variance"
 
 dimensionality_reduction: "pca"
 
-reduced_dimension: 20
+reduced_dimension: 32
 
 standardize_post_reduction: True
 
@@ -33,7 +33,7 @@ density_to_log: False
 
 clustering: "dirichlet_process_gaussian_mixture"
 
-simplify_clustering: True
+simplify_clustering: False
 
 # Any value
-num_clusters: 10
+num_clusters: 20
