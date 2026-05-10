@@ -13,7 +13,10 @@ import numpy as np
 
 def visualize_macros(eft_mac, cs_mac, path=None):
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    if eft_mac.shape[0]>10:
+        fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+    else:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     matrices = [
         (eft_mac, "EFT MAC"),

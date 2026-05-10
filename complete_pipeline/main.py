@@ -91,9 +91,6 @@ def main():
         ]
     ), "Config file used must have only one value for each hyperparameter."
 
-    # Different treatment for "orientations" which is a list
-    assert not isinstance(orientations[0], list), "Config file used must have only one value for each hyperparameter."
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = os.path.join(FILE_PATH, f"out/run_{experiment_name}_{timestamp}")
     os.makedirs(out_dir, exist_ok=True)
