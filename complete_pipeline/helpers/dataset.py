@@ -42,6 +42,30 @@ def get_most_class_expressive_units(dataset: StaticGratingsDataset, top_n: int, 
     return df.index[:top_n].to_list()
 
 
+def build_random_j(shape, mean, max_val, min_val, rtol=1e-1):
+    n = np.prod(shape)
+    raw = np.zeros(shape, dtype=np.int32)
+
+    # Probabilities derived from the known sparsity structure
+    # mean ≈ 0*p0 + 1*p1 + 2*p2 + 3*p3, with p1 ≈ 0.2, p2 << p1, p3 << p2
+    p1 = 0.17
+    p2 = mean - p1  # absorb remaining mean mass into 2s
+    p2 = max(p2, 0.0)
+    p1 = mean - 2 * p2  # readjust p1 accordingly
+
+    # Draw each value layer as a sparse mask
+    mask1 = np.random.random(shape) < p1
+    mask2 = np.random.random(shape) < p2
+    mask3 = np.random.random(shape) < (mean / 100)  # very rare 3s
+
+    raw[mask1] = 1
+    raw[mask2] = 2  # overwrites some 1s, which is fine — still rare
+    raw[mask3] = 3  # overwrites very few entries
+
+    raw = np.clip(raw, min_val, max_val)
+    return raw
+
+
 def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num_neurons, neuron_selection):
     if i_dataset == "static_gratings_params":
         if experiment_file == "all":
@@ -65,9 +89,9 @@ def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num
                     selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
                     selected_units = sg_dataset.get_unit_ids(units)
                     if neuron_selection == "variance":
-                        most_expressive = get_most_expressive_units(sg_dataset,num_neurons,selected_orientations,selected_units)
+                        most_expressive = get_most_expressive_units(sg_dataset, num_neurons, selected_orientations, selected_units)
                     elif neuron_selection == "class_variance":
-                        most_expressive = get_most_class_expressive_units(sg_dataset,num_neurons,selected_orientations,selected_units,orientations)
+                        most_expressive = get_most_class_expressive_units(sg_dataset, num_neurons, selected_orientations, selected_units, orientations)
                     else:
                         raise ValueError("neuron_selection must be in ['variance', 'class_variance']")
                     X_sg, y_sg = sg_dataset.get_data(presentation_ids=selected_orientations, unit_ids=most_expressive, stimulus_type="params")
@@ -78,12 +102,60 @@ def fetch_dataset(experiment_file, i_dataset, orientations, units, num_bins, num
             else:
                 raise NotImplementedError("TODO: num_bins != 100 not implemented yet.")
 
+    # Replace j with random "images" that have the same mean, max and min values
+    elif i_dataset == "static_gratings_params_random_baseline":
+        if experiment_file == "all":
+            raise NotImplementedError("TODO: experiment_name == \"all\" not implemented yet.")
+        else:
+            if num_bins == 100:
+                if num_neurons == "all":
+                    experiment_name_int = int(experiment_file)
+                    sg_dataset = StaticGratingsDataset(experiment_name_int)
+                    selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
+                    selected_units = sg_dataset.get_unit_ids(units)
+                    X_sg, y_sg = sg_dataset.get_data(presentation_ids=selected_orientations, unit_ids=selected_units, stimulus_type="params")
+                    i = X_sg
+                    # Transpose to have shape (num_samples, num_neurons, num_bins)
+                    j = np.transpose(y_sg, (0, 2, 1))
+                    j_mean = np.mean(j, axis=(0, 1, 2))
+                    j_max = np.max(j, axis=(0, 1, 2))
+                    j_min = np.min(j, axis=(0, 1, 2))
+                    j_unique = np.unique(j)
+                    print(f"j description: mean: {j_mean}; max: {j_max}; min: {j_min}; n_unique: {len(j_unique)}")
+                    j = build_random_j(j.shape, j_mean, j_max, j_min)
+                    return i, j
+                else:
+                    # Use neuron_selection
+                    experiment_name_int = int(experiment_file)
+                    sg_dataset = StaticGratingsDataset(experiment_name_int)
+                    selected_orientations = sg_dataset.get_presentation_ids(orientation=orientations)
+                    selected_units = sg_dataset.get_unit_ids(units)
+                    if neuron_selection == "variance":
+                        most_expressive = get_most_expressive_units(sg_dataset, num_neurons, selected_orientations, selected_units)
+                    elif neuron_selection == "class_variance":
+                        most_expressive = get_most_class_expressive_units(sg_dataset, num_neurons, selected_orientations, selected_units, orientations)
+                    else:
+                        raise ValueError("neuron_selection must be in ['variance', 'class_variance']")
+                    X_sg, y_sg = sg_dataset.get_data(presentation_ids=selected_orientations, unit_ids=most_expressive, stimulus_type="params")
+                    i = X_sg
+                    # Transpose to have shape (num_samples, num_neurons, num_bins)
+                    j = np.transpose(y_sg, (0, 2, 1))
+                    j_mean = np.mean(j, axis=(0, 1, 2))
+                    j_max = np.max(j, axis=(0, 1, 2))
+                    j_min = np.min(j, axis=(0, 1, 2))
+                    j_unique = np.unique(j)
+                    print(f"j description: mean: {j_mean}; max: {j_max}; min: {j_min}; n_unique: {len(j_unique)}")
+                    j = build_random_j(j.shape, j_mean, j_max, j_min)
+                    return i, j
+            else:
+                raise NotImplementedError("TODO: num_bins != 100 not implemented yet.")
+
     else:
         raise NotImplementedError("TODO: i_dataset != \"static_gratings_params\" not implemented yet.")
 
 
 def apply_dimensionality_reduction(i, j, experiment_file, i_dataset, dim_reduction, reduced_dimension):
-    if i_dataset == "static_gratings_params":
+    if i_dataset == "static_gratings_params" or i_dataset == "static_gratings_params_random_baseline":
         # Only reduce J
         if dim_reduction == "autoencoder":
             # Fetch data from session_data
